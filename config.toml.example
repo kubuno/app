@@ -1,0 +1,24 @@
+# ─── Kubuno App — Configuration ───────────────────────────────────────────────
+# Copiez ce fichier en config.toml et adaptez les valeurs.
+# Les variables d'environnement préfixées KA__ surchargent ce fichier.
+# Exemple : KA__SERVER__PORT=3119
+
+[server]
+host = "127.0.0.1"
+port = 3119
+
+[core]
+# URL du core Kubuno (enregistrement + proxy sortant)
+url             = "http://127.0.0.1:8080"
+# Secret partagé — doit correspondre à server.internal_secret dans le core
+internal_secret = "change_me"
+# URL du module files/drive (stockage des définitions .kbapp)
+files_url       = "http://127.0.0.1:3101"
+
+# ── Base de données ───────────────────────────────────────────────────────────
+# Les paramètres de connexion sont injectés par le superviseur Kubuno via
+# KUBUNO_DB_HOST / KUBUNO_DB_PORT / KUBUNO_DB_USER / KUBUNO_DB_PASSWORD / KUBUNO_DB_NAME.
+
+[logging]
+level  = "info"
+format = "pretty"

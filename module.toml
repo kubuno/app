@@ -1,0 +1,39 @@
+[module]
+id           = "app"
+display_name = "App"
+version      = "0.1.0"
+description  = "Plateforme no-code visuelle — construisez des applications web complètes (pages, données, workflows) sans code"
+author       = "Kubuno Contributors"
+license      = "AGPL-3.0"
+runtime      = "rust"
+settings_path = "/app/settings"
+
+[process]
+entrypoint = "kubuno-app"
+args       = []
+
+[server]
+host = "127.0.0.1"
+port = 3119
+
+[routes]
+patterns = [
+    { method = "*", path = "/*" },
+]
+
+[[sidebar_items]]
+id       = "app"
+label    = "App"
+icon     = "AppWindow"
+path     = "/app"
+position = 62
+protected_folder = "App"
+section  = "main"
+
+[events]
+subscribed = []
+publishes = [
+    "AppRecordCreated",
+    "AppRecordUpdated",
+    "AppRecordDeleted",
+]
