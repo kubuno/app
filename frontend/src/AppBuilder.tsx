@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useAuthStore, WorkspaceShell, DockArea, WORKSPACE_LIGHT, prompt, type DockPanel, type WorkspaceMenuItem } from '@kubuno/sdk'
+import { useAuthStore, WorkspaceShell, DockArea, WORKSPACE_LIGHT, prompt, useNotificationStore, type DockPanel, type WorkspaceMenuItem } from '@kubuno/sdk'
 import { Button, Input, Dropdown, ColorField } from '@ui'
 import {
   Undo2, Redo2, Monitor, Tablet, Smartphone, Play, X,
-  Layout, Database, Zap, Settings as SettingsIcon, Plus, Globe, Check, ExternalLink, Copy,
+  Layout, Database, Zap, Settings as SettingsIcon, Plus, Globe, Check, ExternalLink, Copy, FileText,
 } from 'lucide-react'
 import { appApi } from './api'
 import { useBuilder, currentPage, findEl, isContainerType, type LeftTab, type Device } from './store'
@@ -13,6 +13,8 @@ import ElementTree from './builder/ElementTree'
 import Inspector from './builder/Inspector'
 import DataDesigner from './builder/DataDesigner'
 import WorkflowEditor from './builder/WorkflowEditor'
+import ReportDesigner from './builder/ReportDesigner'
+import PageDialog from './builder/PageDialog'
 import Canvas from './builder/Canvas'
 import BuilderToolbar from './builder/BuilderToolbar'
 import BuilderStatusBar from './builder/BuilderStatusBar'
@@ -27,6 +29,7 @@ export default function AppBuilder() {
   const [published, setPublished] = useState(false)
   const [slug, setSlug] = useState('')
   const [shareOpen, setShareOpen] = useState(false)
+  const [pageDialogOpen, setPageDialogOpen] = useState(false)
 
   const def = useBuilder((s) => s.def)
   const appId = useBuilder((s) => s.appId)
@@ -42,6 +45,7 @@ export default function AppBuilder() {
   const togglePreview = useBuilder((s) => s.togglePreview)
   const undo = useBuilder((s) => s.undo)
   const redo = useBuilder((s) => s.redo)
+  const addPageDef = useBuilder((s) => s.addPageDef)
   // États réactifs pour activer/désactiver les entrées de menus.
   const selectedId = useBuilder((s) => s.selectedId)
   const hasClipboard = useBuilder((s) => !!s.clipboard)
@@ -153,12 +157,14 @@ export default function AppBuilder() {
     { id: 'design',    label: 'Design',    Icon: Layout },
     { id: 'data',      label: 'Données',   Icon: Database },
     { id: 'workflows', label: 'Workflows', Icon: Zap },
+    { id: 'reports',   label: 'Rapports',  Icon: FileText },
     { id: 'settings',  label: 'Réglages',  Icon: SettingsIcon },
   ]
   const viewport =
     leftTab === 'design'    ? <Canvas /> :
     leftTab === 'data'      ? <DataDesigner /> :
     leftTab === 'workflows' ? <WorkflowEditor /> :
+    leftTab === 'reports'   ? <ReportDesigner /> :
     <div className="flex-1 overflow-auto bg-white"><div className="mx-auto max-w-xl p-6"><AppSettingsPanel /></div></div>
 
   // ── Barre de menus principale (Fichier/Édition/Insertion/Page/Affichage/Aide) ──
@@ -182,6 +188,20 @@ export default function AppBuilder() {
     const next = structuredClone(st.def)
     const p = next.pages.find((x) => x.id === pg.id); if (p) p.name = name.trim()
     s().commit(next)
+  }
+  // Enregistre la page courante comme modèle réutilisable (persisté côté backend,
+  // pour la réinsérer dans d'autres projets via la fenêtre « Ajouter une page »).
+  const savePageAsTemplate = async () => {
+    const pg = currentPage(s()); if (!pg) return
+    const name = await prompt({ title: 'Enregistrer la page comme modèle', message: 'Nom du modèle (réutilisable dans vos autres projets)', defaultValue: pg.name, confirmLabel: 'Enregistrer' })
+    if (!name?.trim()) return
+    const notify = useNotificationStore.getState().push
+    try {
+      await appApi.savePageTemplate({ name: name.trim(), definition: { ...pg, name: name.trim() } })
+      notify({ title: 'Modèle enregistré', body: `« ${name.trim()} » est disponible dans « Mes modèles ».`, moduleId: 'app', icon: 'LayoutTemplate' })
+    } catch {
+      notify({ title: 'Échec', body: 'Impossible d’enregistrer le modèle de page.', moduleId: 'app', icon: 'AlertTriangle' })
+    }
   }
   const menus: { label: string; items: WorkspaceMenuItem[] }[] = [
     { label: 'Fichier', items: [
@@ -219,16 +239,18 @@ export default function AppBuilder() {
       { label: 'Liste répétée (données)', onClick: () => insert('repeatingGroup') },
     ]},
     { label: 'Page', items: [
-      { label: 'Nouvelle page', onClick: () => s().addPage(`Page ${pagesCount + 1}`) },
+      { label: 'Nouvelle page…', onClick: () => setPageDialogOpen(true) },
       { label: 'Renommer la page…', onClick: renamePage },
       { label: 'Supprimer la page', onClick: () => pageObj && s().deletePage(pageObj.id), disabled: pagesCount <= 1 },
       'sep',
+      { label: 'Enregistrer comme modèle…', onClick: savePageAsTemplate },
       { label: 'Réglages de la page…', onClick: () => setLeftTab('settings') },
     ]},
     { label: 'Affichage', items: [
       { label: 'Design', onClick: () => setLeftTab('design') },
       { label: 'Données', onClick: () => setLeftTab('data') },
       { label: 'Workflows', onClick: () => setLeftTab('workflows') },
+      { label: 'Rapports', onClick: () => setLeftTab('reports') },
       { label: 'Réglages', onClick: () => setLeftTab('settings') },
       'sep',
       { label: 'Ordinateur', onClick: () => setDevice('desktop') },
@@ -276,7 +298,7 @@ export default function AppBuilder() {
           ))}
         </>
       }
-      bottomBar={<PagesBar />}
+      bottomBar={<PagesBar onAdd={() => setPageDialogOpen(true)} />}
     >
       <DockArea
         panels={dockPanels}
@@ -291,6 +313,7 @@ export default function AppBuilder() {
       </DockArea>
     </WorkspaceShell>
     {shareOpen && <PublishDialog url={shareUrl} published={published} onUnpublish={() => { publishApp(false); setShareOpen(false) }} onClose={() => setShareOpen(false)} />}
+    {pageDialogOpen && <PageDialog onClose={() => setPageDialogOpen(false)} onPick={(page) => addPageDef(page)} />}
     </>
   )
 }
@@ -344,11 +367,10 @@ function DevicePicker({ device, setDevice }: { device: Device; setDevice: (d: De
   )
 }
 
-function PagesBar() {
+function PagesBar({ onAdd }: { onAdd: () => void }) {
   const def = useBuilder((s) => s.def)
   const page = useBuilder(currentPage)
   const selectPage = useBuilder((s) => s.selectPage)
-  const addPage = useBuilder((s) => s.addPage)
   const deletePage = useBuilder((s) => s.deletePage)
   if (!def) return null
   return (
@@ -363,7 +385,7 @@ function PagesBar() {
           )}
         </button>
       ))}
-      <button type="button" onClick={() => addPage(`Page ${def.pages.length + 1}`)} className="rounded-md p-1 text-slate-500 hover:bg-white hover:text-blue-600" title="Ajouter une page"><Plus size={14} /></button>
+      <button type="button" onClick={onAdd} className="rounded-md p-1 text-slate-500 hover:bg-white hover:text-blue-600" title="Ajouter une page"><Plus size={14} /></button>
     </div>
   )
 }

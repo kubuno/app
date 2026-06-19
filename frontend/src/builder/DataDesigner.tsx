@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Database, RefreshCw } from 'lucide-react'
+import { Plus, Trash2, Database, RefreshCw, Users } from 'lucide-react'
 import { prompt } from '@kubuno/sdk'
-import { Button, Input, Dropdown } from '@ui'
+import { Button, Input, Dropdown, Checkbox } from '@ui'
 import type { DataType, Field, FieldType } from '../types'
 import { useBuilder, uid } from '../store'
 import { appApi, type DataRecord } from '../api'
@@ -83,6 +83,15 @@ function TypeEditor({ type, appId, onChange, onRemove }: {
         <Input value={type.name} onChange={(e) => onChange({ name: e.target.value })} className="text-lg font-semibold" />
         <button type="button" onClick={onRemove} className="ml-auto rounded-md p-2 text-red-500 hover:bg-red-50" title="Supprimer le type"><Trash2 size={16} /></button>
       </div>
+
+      {/* Données partagées : pool commun multi-utilisateurs (collaboratif/temps réel). */}
+      <label className="flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+        <Users size={15} className="mt-0.5 shrink-0 text-violet-600" />
+        <span className="flex-1">
+          <Checkbox checked={!!type.shared} label="Partagé entre tous les utilisateurs" onChange={(c) => onChange({ shared: c })} />
+          <span className="mt-0.5 block text-[11px] text-slate-500">Les enregistrements sont communs à tous les comptes (avec l’identité du créateur). Requis pour le collaboratif/temps réel (ex. messagerie). L’app doit être publiée pour que d’autres comptes y accèdent.</span>
+        </span>
+      </label>
 
       <div>
         <div className="mb-2 flex items-center justify-between">

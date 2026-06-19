@@ -23,6 +23,21 @@ fn random_slug() -> String {
     }).collect()
 }
 
+/// Extrait les noms des types de données déclarés « partagés » dans la définition.
+/// Sert à autoriser/router l'accès partagé multi-utilisateurs côté backend (sans
+/// avoir à relire le fichier .kbapp à chaque requête de données).
+fn extract_shared_types(def: &Value) -> Vec<String> {
+    def.get("dataTypes")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter(|t| t.get("shared").and_then(|s| s.as_bool()).unwrap_or(false))
+                .filter_map(|t| t.get("name").and_then(|n| n.as_str()).map(String::from))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 /// GET /apps — liste des applications (métadonnée seule, sans la définition).
 pub async fn list(
     State(state): State<AppState>,
@@ -55,10 +70,11 @@ pub async fn create(
 
     let file_id = cf::create_app_file(&state, user.id, &dto.name, definition.clone()).await?;
     let slug = random_slug();
+    let shared_types = extract_shared_types(&definition);
 
     let mut app = sqlx::query_as::<_, Application>(
-        r#"INSERT INTO app.apps (owner_id, name, description, file_id, slug, tags)
-           VALUES ($1, $2, $3, $4, $5, $6) RETURNING *"#,
+        r#"INSERT INTO app.apps (owner_id, name, description, file_id, slug, tags, is_shared, shared_types)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *"#,
     )
     .bind(user.id)
     .bind(&dto.name)
@@ -66,6 +82,8 @@ pub async fn create(
     .bind(file_id)
     .bind(&slug)
     .bind(&tags)
+    .bind(!shared_types.is_empty())
+    .bind(&shared_types)
     .fetch_one(&state.db)
     .await?;
     app.definition = definition;
@@ -165,9 +183,11 @@ pub async fn update(
         },
     };
 
+    let shared_types = extract_shared_types(&definition);
     let mut app = sqlx::query_as::<_, Application>(
         r#"UPDATE app.apps SET
-            name = $2, description = $3, file_id = $4, tags = $5, is_published = $6
+            name = $2, description = $3, file_id = $4, tags = $5, is_published = $6,
+            is_shared = $7, shared_types = $8
            WHERE id = $1 RETURNING *"#,
     )
     .bind(id)
@@ -176,6 +196,8 @@ pub async fn update(
     .bind(file_id)
     .bind(&tags)
     .bind(is_published)
+    .bind(!shared_types.is_empty())
+    .bind(&shared_types)
     .fetch_one(&state.db)
     .await?;
     app.definition = definition;
@@ -211,10 +233,11 @@ pub async fn duplicate(
     let new_name = format!("{} (copie)", src.name);
     let new_file_id = cf::create_app_file(&state, user.id, &new_name, src.definition.clone()).await?;
     let slug = random_slug();
+    let shared_types = extract_shared_types(&src.definition);
 
     let mut app = sqlx::query_as::<_, Application>(
-        r#"INSERT INTO app.apps (owner_id, name, description, file_id, slug, tags)
-           VALUES ($1, $2, $3, $4, $5, $6) RETURNING *"#,
+        r#"INSERT INTO app.apps (owner_id, name, description, file_id, slug, tags, is_shared, shared_types)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *"#,
     )
     .bind(user.id)
     .bind(&new_name)
@@ -222,6 +245,8 @@ pub async fn duplicate(
     .bind(new_file_id)
     .bind(&slug)
     .bind(&src.tags)
+    .bind(!shared_types.is_empty())
+    .bind(&shared_types)
     .fetch_one(&state.db)
     .await?;
     app.definition = src.definition;
@@ -259,10 +284,12 @@ pub async fn get_public(
     .bind(&slug)
     .fetch_optional(&state.db).await?
     .ok_or_else(|| AppError::NotFound("Application introuvable".into()))?;
-    let (_id, owner, file_id, name) = row;
+    let (id, owner, file_id, name) = row;
     let definition = match file_id {
         Some(fid) => cf::read_definition(&state, owner, fid).await.unwrap_or_else(|_| cf::empty_definition()),
         None => cf::empty_definition(),
     };
-    Ok(Json(json!({ "name": name, "slug": slug, "definition": definition })))
+    // `id` est exposé pour que le runtime authentifié puisse appeler les routes de
+    // données PARTAGÉES (`/apps/:id/shared/:type`) avec l'identité du visiteur.
+    Ok(Json(json!({ "id": id, "name": name, "slug": slug, "definition": definition })))
 }

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { getIcon } from '@kubuno/sdk'
+import { resolveIcon } from '../elements/icons'
 import type { AppDefinition, Dyn, Element, Page, RuntimeContext, Workflow } from '../types'
 import { resolveDyn, resolveText, resolveVisible } from '../binding'
 import { appApi, type DataRecord } from '../api'
 import { elementCss, asCss } from '../elements/style'
 import { renderWidget } from '../elements/widgets'
 import { runActions, type ActionEnv } from './actions'
+import { RunTileList, RunChatThread, RunMessageInput } from './ChatRuntime'
 
 interface Toast { id: number; msg: string }
 
@@ -46,9 +47,10 @@ export default function AppRuntime({
 
   const page = def.pages.find((p) => p.id === pageId) ?? def.pages[0]
 
+  const sharedTypes = useMemo(() => def.dataTypes.filter((t) => t.shared).map((t) => t.name), [def])
   const ctxBase: Omit<RuntimeContext, 'cell'> = useMemo(
-    () => ({ appId, dataScope, inputs, state: pstate, currentUser }),
-    [appId, dataScope, inputs, pstate, currentUser],
+    () => ({ appId, dataScope, inputs, state: pstate, currentUser, sharedTypes }),
+    [appId, dataScope, inputs, pstate, currentUser, sharedTypes],
   )
 
   const alert = useCallback((msg: string) => {
@@ -57,16 +59,20 @@ export default function AppRuntime({
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3500)
   }, [])
 
-  const navigate = useCallback((pid: string) => { setPageId(pid); setInputs({}) }, [])
+  const historyRef = useRef<string[]>([])
+  const navigate = useCallback((pid: string) => { setPageId((cur) => { if (cur && cur !== pid) historyRef.current.push(cur); return pid }); setInputs({}) }, [])
+  const goBack = useCallback(() => { const prev = historyRef.current.pop(); if (prev) { setPageId(prev); setInputs({}) } }, [])
   const resetInputs = useCallback(() => setInputs({}), [])
   const refresh = useCallback(() => setVersion((v) => v + 1), [])
   const setStateVar = useCallback((k: string, v: unknown) => setPstate((s) => ({ ...s, [k]: v })), [])
 
+  const reports = def.reports ?? []
   const makeEnv = useCallback((cell?: Record<string, unknown>): ActionEnv => ({
     appId,
     ctx: { ...ctxBase, cell },
-    setState: setStateVar, navigate, resetInputs, refresh, alert,
-  }), [appId, ctxBase, setStateVar, navigate, resetInputs, refresh, alert])
+    reports,
+    setState: setStateVar, navigate, goBack, resetInputs, refresh, alert,
+  }), [appId, ctxBase, reports, setStateVar, navigate, goBack, resetInputs, refresh, alert])
 
   // Workflows « au chargement de page ».
   useEffect(() => {
@@ -121,8 +127,24 @@ function RunNode(props: NodeProps) {
 
   const childrenNodes = (el.children ?? []).map((c) => <RunNode key={c.id} {...props} el={c} />)
 
+  // Widgets de chat LIÉS AUX DONNÉES (quand configurés) : rendus fonctionnels au
+  // runtime (data + polling + identité), vs rendu statique du builder.
+  if (el.type === 'tileList' && el.props.sourceType) {
+    const env = makeEnv(cell)
+    return <RunTileList el={el} ctx={ctx} setState={env.setState} navigate={env.navigate} version={version} />
+  }
+  if (el.type === 'chatThread' && el.props.sourceType) {
+    return <RunChatThread el={el} ctx={ctx} version={version} />
+  }
+  if (el.type === 'messageInput' && el.props.dataType) {
+    const env = makeEnv(cell)
+    return <RunMessageInput el={el} ctx={ctx} refresh={env.refresh} />
+  }
+
   // Widgets riches (façon Elementor) : rendu partagé builder/runtime, interactif.
-  const custom = renderWidget(el, true)
+  // `navigate` permet aux widgets de navigation (bottomNav, tileList, appBar) de
+  // changer de page au runtime.
+  const custom = renderWidget(el, true, navigate)
   if (custom !== undefined) return custom
 
   switch (el.type) {
@@ -191,7 +213,7 @@ function RunNode(props: NodeProps) {
     case 'divider':
       return <div style={css} />
     case 'icon': {
-      const Ico = getIcon((el.props.icon as string) || 'Star')
+      const Ico = resolveIcon((el.props.icon as string) || 'Star')
       return <span style={css}>{Ico ? <Ico size={(el.style.fontSize as number) || 24} /> : null}</span>
     }
     default:

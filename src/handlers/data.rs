@@ -94,6 +94,28 @@ pub async fn resolve_published(state: &AppState, slug: &str) -> Result<(Uuid, Uu
     .ok_or_else(|| AppError::NotFound("Application introuvable".into()))
 }
 
+/// Résout l'accès aux données PARTAGÉES d'une app (multi-utilisateurs) →
+/// owner_id du pool commun. Autorisé pour le propriétaire, ou pour tout
+/// utilisateur authentifié si l'app est publiée ; le type doit être déclaré
+/// partagé (`shared_types`). Les enregistrements vivent sous l'owner de l'app
+/// mais gardent l'identité du créateur (`created_by`).
+pub async fn resolve_shared(state: &AppState, app_id: Uuid, user_id: Uuid, type_name: &str) -> Result<Uuid> {
+    let row = sqlx::query_as::<_, (Uuid, bool, bool, Vec<String>)>(
+        "SELECT owner_id, is_published, is_shared, shared_types FROM app.apps WHERE id = $1 AND is_trashed = FALSE",
+    )
+    .bind(app_id)
+    .fetch_optional(&state.db).await?
+    .ok_or_else(|| AppError::NotFound("Application introuvable".into()))?;
+    let (owner, is_published, is_shared, shared_types) = row;
+    if !is_shared || !shared_types.iter().any(|t| t == type_name) {
+        return Err(AppError::NotFound("Type de données non partagé".into()));
+    }
+    if owner != user_id && !is_published {
+        return Err(AppError::Forbidden);
+    }
+    Ok(owner)
+}
+
 // ── Fonctions cœur (partagées par l'accès authentifié ET public) ─────────────
 // `owner` = propriétaire de l'app ; les enregistrements vivent toujours sous lui.
 
@@ -245,6 +267,61 @@ pub async fn public_delete(
     Path((slug, _type_name, rid)): Path<(String, String, Uuid)>,
 ) -> Result<Json<Value>> {
     let (app_id, owner) = resolve_published(&state, &slug).await?;
+    Ok(Json(do_delete(&state, app_id, owner, rid).await?))
+}
+
+// ── Handlers PARTAGÉS (multi-utilisateurs, authentifiés) ─────────────────────
+// Pool de données commun (sous l'owner de l'app) avec identité réelle du créateur
+// → applications collaboratives temps réel (messagerie…). Accessibles à tout
+// compte connecté si l'app est publiée + le type déclaré partagé.
+
+pub async fn shared_search(
+    State(state): State<AppState>,
+    user: AppUserExt,
+    Path((app_id, type_name)): Path<(Uuid, String)>,
+    Json(q): Json<SearchQuery>,
+) -> Result<Json<Value>> {
+    let owner = resolve_shared(&state, app_id, user.id, &type_name).await?;
+    Ok(Json(do_search(&state, app_id, owner, &type_name, &q).await?))
+}
+
+pub async fn shared_list(
+    State(state): State<AppState>,
+    user: AppUserExt,
+    Path((app_id, type_name)): Path<(Uuid, String)>,
+) -> Result<Json<Value>> {
+    let owner = resolve_shared(&state, app_id, user.id, &type_name).await?;
+    Ok(Json(do_list(&state, app_id, owner, &type_name).await?))
+}
+
+pub async fn shared_create(
+    State(state): State<AppState>,
+    user: AppUserExt,
+    Path((app_id, type_name)): Path<(Uuid, String)>,
+    Json(dto): Json<CreateRecordDto>,
+) -> Result<Json<Value>> {
+    let owner = resolve_shared(&state, app_id, user.id, &type_name).await?;
+    // created_by = identité réelle de l'auteur, même si l'enregistrement vit dans
+    // le pool partagé de l'owner.
+    Ok(Json(do_create(&state, app_id, owner, Some(user.id), &type_name, dto.data).await?))
+}
+
+pub async fn shared_update(
+    State(state): State<AppState>,
+    user: AppUserExt,
+    Path((app_id, type_name, rid)): Path<(Uuid, String, Uuid)>,
+    Json(dto): Json<UpdateRecordDto>,
+) -> Result<Json<Value>> {
+    let owner = resolve_shared(&state, app_id, user.id, &type_name).await?;
+    Ok(Json(do_update(&state, app_id, owner, rid, dto.data).await?))
+}
+
+pub async fn shared_delete(
+    State(state): State<AppState>,
+    user: AppUserExt,
+    Path((app_id, type_name, rid)): Path<(Uuid, String, Uuid)>,
+) -> Result<Json<Value>> {
+    let owner = resolve_shared(&state, app_id, user.id, &type_name).await?;
     Ok(Json(do_delete(&state, app_id, owner, rid).await?))
 }
 
