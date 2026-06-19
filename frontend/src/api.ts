@@ -1,5 +1,14 @@
 import { api } from '@kubuno/sdk'
-import type { Application, AppDefinition, ConstraintDef } from './types'
+import type { Application, AppDefinition, ConstraintDef, Page } from './types'
+
+/** Modèle de page réutilisable (persisté côté backend, par utilisateur). */
+export interface SavedPageTemplate {
+  id:         string
+  name:       string
+  theme:      string
+  definition: Page
+  created_at: string
+}
 
 /** Contrainte « résolue » envoyée au moteur de données (valeurs littérales). */
 export interface ResolvedConstraint {
@@ -61,9 +70,22 @@ export const appApi = {
   },
 
   // ── Vue publique d'une app publiée ───────────────────────────────────────────
-  async getPublic(slug: string): Promise<{ name: string; slug: string; definition: AppDefinition }> {
+  async getPublic(slug: string): Promise<{ id: string; name: string; slug: string; definition: AppDefinition }> {
     const { data } = await api.get(`/app/public/apps/${encodeURIComponent(slug)}`)
     return data
+  },
+
+  // ── Modèles de pages réutilisables (inter-projets) ───────────────────────────
+  async listPageTemplates(): Promise<SavedPageTemplate[]> {
+    const { data } = await api.get('/app/page-templates')
+    return data
+  },
+  async savePageTemplate(payload: { name: string; theme?: string; definition: Page }): Promise<SavedPageTemplate> {
+    const { data } = await api.post('/app/page-templates', payload)
+    return data
+  },
+  async deletePageTemplate(id: string): Promise<void> {
+    await api.delete(`/app/page-templates/${id}`)
   },
 
   // ── Données dynamiques (« Things ») ──────────────────────────────────────────
@@ -87,5 +109,28 @@ export const appApi = {
   },
   async deleteRecord(scope: string, type: string, rid: string): Promise<void> {
     await api.delete(`/app/${scope}/data/${encodeURIComponent(type)}/${rid}`)
+  },
+
+  // ── Données PARTAGÉES (multi-utilisateurs, identité réelle) ──────────────────
+  // Pool commun sous l'owner de l'app, accessible à tout compte connecté si l'app
+  // est publiée + le type déclaré « partagé ». Clé = appId (pas le scope).
+  async sharedSearch(appId: string, type: string, params: SearchParams): Promise<{ results: DataRecord[]; count: number }> {
+    const { data } = await api.post(`/app/apps/${appId}/shared/${encodeURIComponent(type)}/search`, params)
+    return data
+  },
+  async sharedList(appId: string, type: string): Promise<{ results: DataRecord[]; count: number }> {
+    const { data } = await api.get(`/app/apps/${appId}/shared/${encodeURIComponent(type)}`)
+    return data
+  },
+  async sharedCreate(appId: string, type: string, fields: Record<string, unknown>): Promise<DataRecord> {
+    const { data } = await api.post(`/app/apps/${appId}/shared/${encodeURIComponent(type)}`, { data: fields })
+    return data
+  },
+  async sharedUpdate(appId: string, type: string, rid: string, fields: Record<string, unknown>): Promise<DataRecord> {
+    const { data } = await api.put(`/app/apps/${appId}/shared/${encodeURIComponent(type)}/${rid}`, { data: fields })
+    return data
+  },
+  async sharedDelete(appId: string, type: string, rid: string): Promise<void> {
+    await api.delete(`/app/apps/${appId}/shared/${encodeURIComponent(type)}/${rid}`)
   },
 }

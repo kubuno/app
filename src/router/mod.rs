@@ -6,7 +6,7 @@ use axum::{
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 
 use crate::{
-    handlers::{apps, data, health},
+    handlers::{apps, data, health, page_templates},
     middleware::require_auth,
     state::AppState,
 };
@@ -19,11 +19,19 @@ pub fn build(state: AppState) -> Router {
         .route("/apps/:id", get(apps::get).put(apps::update).delete(apps::delete))
         .route("/apps/:id/duplicate", post(apps::duplicate))
         .route("/apps/:id/publish", post(apps::publish))
+        // Modèles de pages réutilisables (par utilisateur, inter-projets)
+        .route("/page-templates", get(page_templates::list).post(page_templates::create))
+        .route("/page-templates/:id", axum::routing::delete(page_templates::delete))
         // Moteur de données dynamique (« Things »)
         .route("/apps/:app_id/data/:type", get(data::list).post(data::create))
         .route("/apps/:app_id/data/:type/search", post(data::search))
         .route("/apps/:app_id/data/:type/:rid",
             get(data::get).put(data::update).delete(data::delete))
+        // Données PARTAGÉES (multi-utilisateurs, identité réelle) — collaboratif
+        .route("/apps/:app_id/shared/:type", get(data::shared_list).post(data::shared_create))
+        .route("/apps/:app_id/shared/:type/search", post(data::shared_search))
+        .route("/apps/:app_id/shared/:type/:rid",
+            put(data::shared_update).delete(data::shared_delete))
         .layer(middleware::from_fn_with_state(state.clone(), require_auth))
         .with_state(state.clone());
 

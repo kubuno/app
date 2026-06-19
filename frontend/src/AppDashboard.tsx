@@ -2,15 +2,16 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { format } from 'date-fns'
-import { getDateLocale } from '@kubuno/sdk'
+import { getDateLocale, getIcon } from '@kubuno/sdk'
 import { Button } from '@ui'
 import type { StartPageRecentItem } from '@ui'
 import { ModuleStartPage } from '@kubuno/drive'
 import type { FileItem } from '@kubuno/drive'
 import { AppWindow, Plus, ExternalLink, Monitor, Smartphone, ArrowLeft } from 'lucide-react'
 import { appApi } from './api'
-import type { Application, AppKind } from './types'
+import type { Application, AppKind, Page } from './types'
 import { TEMPLATES } from './templates'
+import { TemplateThumb } from './builder/TemplateThumb'
 
 // Le tableau de bord s'appuie sur `ModuleStartPage` de @kubuno/drive : récents
 // (dérivés des fichiers `.kbapp` du dossier `App/`) + onglet « Parcourir »
@@ -40,7 +41,7 @@ export default function AppDashboard() {
   const create = async (templateId: string) => {
     if (!kind) return
     const tpl = TEMPLATES.find((x) => x.id === templateId)
-    const name = templateId === 'todo' ? 'Liste de tâches' : kind === 'mobile' ? 'Mon app mobile' : t('new_app')
+    const name = !tpl || tpl.id === 'blank' ? (kind === 'mobile' ? 'Mon app mobile' : t('new_app')) : tpl.name
     try {
       const app = await appApi.create({ name, definition: tpl?.build(kind), template: `${kind}:${templateId}` })
       navigate(`/app/${app.id}`)
@@ -88,7 +89,7 @@ export default function AppDashboard() {
 
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={closeCreate}>
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className={`w-full rounded-2xl bg-white p-6 shadow-2xl ${kind ? 'max-w-3xl' : 'max-w-lg'}`} onClick={(e) => e.stopPropagation()}>
             {!kind ? (
               <>
                 <h2 className="mb-1 text-lg font-bold text-slate-800">{t('new_app')}</h2>
@@ -115,14 +116,31 @@ export default function AppDashboard() {
                   <h2 className="text-lg font-bold text-slate-800">{kind === 'mobile' ? t('kind_mobile') : t('kind_web')}</h2>
                 </div>
                 <p className="mb-4 text-sm text-slate-500">{t('pick_template')}</p>
-                <div className="grid grid-cols-2 gap-3">
-                  {TEMPLATES.map((tpl) => (
-                    <button key={tpl.id} type="button" onClick={() => create(tpl.id)}
-                      className="rounded-xl border border-slate-200 p-4 text-left transition hover:border-blue-400 hover:bg-blue-50">
-                      <div className="mb-1 font-semibold text-slate-800">{tpl.name}</div>
-                      <div className="text-xs text-slate-500">{tpl.description}</div>
-                    </button>
-                  ))}
+                <div className="grid max-h-[60vh] grid-cols-2 gap-3 overflow-auto sm:grid-cols-3">
+                  {TEMPLATES.filter((tpl) => tpl.kinds.includes(kind)).map((tpl) => {
+                    const Ico = getIcon(tpl.icon)
+                    let start: Page | undefined
+                    try { const def = tpl.build(kind); start = def.pages.find((p) => p.route === def.settings.startPage) ?? def.pages[0] } catch { start = undefined }
+                    return (
+                      <button key={tpl.id} type="button" onClick={() => create(tpl.id)}
+                        className="flex flex-col overflow-hidden rounded-xl border border-slate-200 text-left transition hover:-translate-y-0.5 hover:border-blue-400 hover:shadow-md">
+                        <div className={`h-36 overflow-hidden border-b border-slate-100 bg-slate-50 ${kind === 'mobile' ? 'flex justify-center' : ''}`}>
+                          {start
+                            ? (kind === 'mobile'
+                                ? <div className="h-full w-[58%] overflow-hidden border-x border-slate-200 bg-white">{<TemplateThumb page={start} width={400} />}</div>
+                                : <TemplateThumb page={start} />)
+                            : <div className="grid h-full place-items-center text-slate-300">{Ico && <Ico size={28} />}</div>}
+                        </div>
+                        <div className="flex items-start gap-2 px-3 py-2.5">
+                          {Ico && <Ico size={16} className="mt-0.5 shrink-0 text-blue-600" />}
+                          <div className="min-w-0">
+                            <div className="truncate text-[13px] font-semibold text-slate-800">{tpl.name}</div>
+                            <div className="text-[11px] leading-tight text-slate-500">{tpl.description}</div>
+                          </div>
+                        </div>
+                      </button>
+                    )
+                  })}
                 </div>
               </>
             )}

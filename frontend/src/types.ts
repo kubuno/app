@@ -26,6 +26,7 @@ export interface AppDefinition {
   pages:     Page[]
   dataTypes: DataType[]
   workflows: Workflow[]
+  reports?:  Report[]
   styles:    NamedStyle[]
   theme:     Theme
   settings:  AppSettings
@@ -104,6 +105,26 @@ export type ElementType =
   | 'counter'
   | 'countdown'
   | 'flipBox'
+  // ── Lot 2 : data-viz & widgets « réclamés » (concurrents lents à les livrer) ──
+  | 'chart'
+  | 'table'
+  | 'stat'
+  | 'steps'
+  | 'timeline'
+  | 'carousel'
+  | 'beforeAfter'
+  | 'progressCircle'
+  | 'badge'
+  | 'breadcrumb'
+  | 'marquee'
+  | 'animatedHeading'
+  // ── Lot 3 : widgets « mobile / app » (barres, listes, messagerie) ──
+  | 'avatar'
+  | 'appBar'
+  | 'bottomNav'
+  | 'tileList'
+  | 'chatThread'
+  | 'messageInput'
 
 export interface ElementStyle {
   [prop: string]: string | number | undefined
@@ -184,6 +205,9 @@ export interface DataType {
   id:     string
   name:   string
   fields: Field[]
+  /** Données PARTAGÉES entre tous les utilisateurs de l'app (pool commun avec
+   *  identité réelle du créateur) — requis pour le collaboratif/temps réel. */
+  shared?: boolean
 }
 
 // ── Workflows (événement → actions) ──────────────────────────────────────────
@@ -194,22 +218,93 @@ export interface EventTrigger {
   pageId?:    string
 }
 
-export type Action =
-  | { id: string; type: 'createRecord'; dataType: string; fields: Record<string, Dyn> }
-  | { id: string; type: 'updateRecord'; dataType: string; recordRef: Dyn; fields: Record<string, Dyn> }
-  | { id: string; type: 'deleteRecord'; dataType: string; recordRef: Dyn }
-  | { id: string; type: 'navigate';     pageId: string }
-  | { id: string; type: 'setState';     key: string; value: Dyn }
-  | { id: string; type: 'showAlert';    message: Dyn }
-  | { id: string; type: 'resetInputs' }
+/** Corps d'une action (sans l'enveloppe id/condition commune). */
+export type ActionBody =
+  | { type: 'createRecord'; dataType: string; fields: Record<string, Dyn> }
+  | { type: 'updateRecord'; dataType: string; recordRef: Dyn; fields: Record<string, Dyn> }
+  | { type: 'deleteRecord'; dataType: string; recordRef: Dyn }
+  | { type: 'navigate';     pageId: string }
+  | { type: 'setState';     key: string; value: Dyn }
+  | { type: 'showAlert';    message: Dyn }
+  | { type: 'resetInputs' }
+  // ── Nouvelles actions ──
+  | { type: 'openUrl';         url: Dyn; newTab?: boolean }
+  | { type: 'copyToClipboard'; text: Dyn }
+  | { type: 'goBack' }
+  | { type: 'generatePdf';     reportId: string }
 
-export type ActionType = Action['type']
+/** Action = corps + id + condition optionnelle (« Seulement si… »). */
+export type Action = ActionBody & { id: string; condition?: Dyn }
+
+export type ActionType = ActionBody['type']
 
 export interface Workflow {
   id:      string
   name:    string
   event:   EventTrigger
   actions: Action[]
+}
+
+// ── Rapports PDF (modèle en BANDES, façon Crystal Reports) ───────────────────
+// Un rapport est une succession de bandes (report/page header, en-têtes &
+// pieds de groupe, détail, footers) contenant des objets positionnés librement
+// (étiquettes, champs de données, totaux, champs spéciaux, traits). Le moteur
+// PDF (runtime/pdf.ts) déroule ces bandes enregistrement par enregistrement.
+
+export type ReportBandType =
+  | 'reportHeader' | 'pageHeader' | 'groupHeader'
+  | 'detail' | 'groupFooter' | 'pageFooter' | 'reportFooter'
+
+export type ReportObjKind = 'label' | 'field' | 'summary' | 'special' | 'line' | 'box'
+export type SummaryFn = 'sum' | 'count' | 'avg' | 'min' | 'max'
+export type SpecialField = 'pageNumber' | 'totalPages' | 'printDate' | 'recordNumber' | 'groupName'
+export type ValueFormat = 'text' | 'number' | 'currency' | 'date' | 'datetime'
+
+export interface ReportObject {
+  id:      string
+  kind:    ReportObjKind
+  x:       number   // points, relatif à la bande
+  y:       number
+  width:   number
+  height:  number
+  text?:    string         // label
+  field?:   string         // field (kind='field') ou champ source d'un summary
+  summary?: SummaryFn      // kind='summary'
+  special?: SpecialField   // kind='special'
+  // style
+  fontSize?: number
+  bold?:     boolean
+  italic?:   boolean
+  align?:    'left' | 'center' | 'right'
+  color?:    string
+  format?:   ValueFormat
+}
+
+export interface ReportBand {
+  id:         string
+  type:       ReportBandType
+  groupIndex?: number       // pour groupHeader / groupFooter
+  height:     number        // points
+  objects:    ReportObject[]
+  fill?:      string        // fond de bande (optionnel)
+}
+
+export interface ReportGroup {
+  field: string
+  desc?: boolean
+}
+
+export interface Report {
+  id:           string
+  name:         string
+  dataType:     string
+  constraints?: ConstraintDef[]
+  sort?:        SortDef
+  groups:       ReportGroup[]
+  bands:        ReportBand[]
+  orientation:  'portrait' | 'landscape'
+  pageSize:     'A4' | 'Letter'
+  margins:      { top: number; right: number; bottom: number; left: number }
 }
 
 // ── Runtime ──────────────────────────────────────────────────────────────────
@@ -226,4 +321,6 @@ export interface RuntimeContext {
   /** Cellule courante d'un repeating group, le cas échéant. */
   cell?:      Record<string, unknown>
   currentUser?: { id: string; email: string }
+  /** Noms des types de données PARTAGÉS (routés vers les endpoints multi-users). */
+  sharedTypes?: string[]
 }

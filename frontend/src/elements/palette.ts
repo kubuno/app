@@ -4,11 +4,14 @@ import {
   StretchVertical, Video, Music, MapPin, Code2, LayoutGrid, Sparkles, ImagePlus,
   ListChecks, ListOrdered, AlertTriangle, Quote, BarChart3, MessageSquareQuote,
   Tag, Megaphone, Share2, PanelTop, Rows3, Hash, Timer, RefreshCw,
+  PieChart, Table2, Gauge, Milestone, GitCommitVertical, GalleryHorizontal, SplitSquareHorizontal,
+  CircleDashed, BadgeCheck, ChevronRight, MoveHorizontal, TextCursor,
+  CircleUserRound, PanelTopDashed, PanelBottom, ListTodo, MessagesSquare, MessageSquareText,
   type LucideIcon,
 } from 'lucide-react'
 import type { ElementType } from '../types'
 
-export type PaletteCategory = 'layout' | 'basic' | 'media' | 'content' | 'interactive' | 'marketing' | 'form' | 'data'
+export type PaletteCategory = 'layout' | 'basic' | 'media' | 'content' | 'interactive' | 'marketing' | 'dataviz' | 'mobile' | 'form' | 'data'
 
 export interface PaletteItem {
   type:     ElementType
@@ -34,6 +37,8 @@ export const PALETTE: PaletteItem[] = [
   // Média
   { type: 'image',          label: 'Image',          Icon: Image,              category: 'media' },
   { type: 'gallery',        label: 'Galerie',        Icon: LayoutGrid,         category: 'media' },
+  { type: 'carousel',       label: 'Carrousel',      Icon: GalleryHorizontal,  category: 'media' },
+  { type: 'beforeAfter',    label: 'Avant / Après',  Icon: SplitSquareHorizontal, category: 'media' },
   { type: 'video',          label: 'Vidéo',          Icon: Video,              category: 'media' },
   { type: 'audio',          label: 'Audio',          Icon: Music,              category: 'media' },
   { type: 'map',            label: 'Carte',          Icon: MapPin,             category: 'media' },
@@ -47,11 +52,31 @@ export const PALETTE: PaletteItem[] = [
   { type: 'alert',          label: 'Alerte',         Icon: AlertTriangle,      category: 'content' },
   { type: 'blockquote',     label: 'Citation',       Icon: Quote,              category: 'content' },
   { type: 'rating',         label: 'Notation',       Icon: Star,               category: 'content' },
+  { type: 'badge',          label: 'Badge',          Icon: BadgeCheck,         category: 'content' },
+  { type: 'breadcrumb',     label: 'Fil d’Ariane',   Icon: ChevronRight,       category: 'content' },
+  { type: 'animatedHeading', label: 'Titre animé',   Icon: TextCursor,         category: 'content' },
+  { type: 'marquee',        label: 'Bandeau défilant', Icon: MoveHorizontal,   category: 'content' },
 
   // Interactif
   { type: 'tabs',           label: 'Onglets',        Icon: PanelTop,           category: 'interactive' },
   { type: 'accordion',      label: 'Accordéon',      Icon: Rows3,              category: 'interactive' },
   { type: 'flipBox',        label: 'Carte retourn.', Icon: RefreshCw,          category: 'interactive' },
+  { type: 'steps',          label: 'Étapes',         Icon: Milestone,          category: 'interactive' },
+
+  // Données & graphiques
+  { type: 'chart',          label: 'Graphique',      Icon: PieChart,           category: 'dataviz' },
+  { type: 'table',          label: 'Tableau',        Icon: Table2,             category: 'dataviz' },
+  { type: 'stat',           label: 'Indicateur (KPI)', Icon: Gauge,            category: 'dataviz' },
+  { type: 'progressCircle', label: 'Jauge circulaire', Icon: CircleDashed,     category: 'dataviz' },
+  { type: 'timeline',       label: 'Chronologie',    Icon: GitCommitVertical,  category: 'dataviz' },
+
+  // Mobile / App
+  { type: 'avatar',         label: 'Avatar',         Icon: CircleUserRound,    category: 'mobile' },
+  { type: 'appBar',         label: 'Barre d’app',    Icon: PanelTopDashed,     category: 'mobile' },
+  { type: 'bottomNav',      label: 'Navigation bas', Icon: PanelBottom,        category: 'mobile' },
+  { type: 'tileList',       label: 'Liste de tuiles', Icon: ListTodo,          category: 'mobile' },
+  { type: 'chatThread',     label: 'Fil de messages', Icon: MessagesSquare,    category: 'mobile' },
+  { type: 'messageInput',   label: 'Zone de saisie', Icon: MessageSquareText,  category: 'mobile' },
 
   // Marketing
   { type: 'counter',        label: 'Compteur',       Icon: Hash,               category: 'marketing' },
@@ -78,6 +103,8 @@ export const CATEGORIES: { id: PaletteCategory; label: string }[] = [
   { id: 'media',       label: 'Média' },
   { id: 'content',     label: 'Contenu' },
   { id: 'interactive', label: 'Interactif' },
+  { id: 'dataviz',     label: 'Données & graphiques' },
+  { id: 'mobile',      label: 'Mobile / App' },
   { id: 'marketing',   label: 'Marketing' },
   { id: 'form',        label: 'Formulaire' },
   { id: 'data',        label: 'Données' },

@@ -7,10 +7,29 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { Dyn, RuntimeContext } from './types'
-import { appApi, type DataRecord, type ResolvedConstraint } from './api'
+import { appApi, type DataRecord, type ResolvedConstraint, type SearchParams } from './api'
 
 export function isDyn(v: unknown): v is Dyn {
   return !!v && typeof v === 'object' && typeof (v as { t?: unknown }).t === 'string'
+}
+
+// ── Accès aux données conscient du PARTAGE ───────────────────────────────────
+// Un type déclaré « partagé » (multi-utilisateurs) est routé vers les endpoints
+// `/apps/:id/shared/:type` (identité réelle) ; sinon vers le scope normal
+// (`apps/<id>/data` ou `public/apps/<slug>/data`).
+const isShared = (ctx: RuntimeContext, type: string) => !!ctx.sharedTypes?.includes(type)
+
+export function searchRecords(ctx: RuntimeContext, type: string, params: SearchParams) {
+  return isShared(ctx, type) ? appApi.sharedSearch(ctx.appId, type, params) : appApi.search(ctx.dataScope, type, params)
+}
+export function createRecordCtx(ctx: RuntimeContext, type: string, fields: Record<string, unknown>) {
+  return isShared(ctx, type) ? appApi.sharedCreate(ctx.appId, type, fields) : appApi.createRecord(ctx.dataScope, type, fields)
+}
+export function updateRecordCtx(ctx: RuntimeContext, type: string, rid: string, fields: Record<string, unknown>) {
+  return isShared(ctx, type) ? appApi.sharedUpdate(ctx.appId, type, rid, fields) : appApi.updateRecord(ctx.dataScope, type, rid, fields)
+}
+export function deleteRecordCtx(ctx: RuntimeContext, type: string, rid: string) {
+  return isShared(ctx, type) ? appApi.sharedDelete(ctx.appId, type, rid) : appApi.deleteRecord(ctx.dataScope, type, rid)
 }
 
 /** Crée une expression statique (helper). */
@@ -45,7 +64,7 @@ export async function resolveDyn(d: Dyn | unknown, ctx: RuntimeContext): Promise
           value: await resolveDyn(c.value, ctx),
         })),
       )
-      const res = await appApi.search(ctx.dataScope, d.dataType, {
+      const res = await searchRecords(ctx, d.dataType, {
         constraints,
         sort_field: d.sort?.field,
         sort_desc: d.sort?.desc,

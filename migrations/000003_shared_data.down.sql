@@ -1,0 +1,2 @@
+ALTER TABLE app.apps DROP COLUMN IF EXISTS shared_types;
+ALTER TABLE app.apps DROP COLUMN IF EXISTS is_shared;

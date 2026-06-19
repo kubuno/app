@@ -1,5 +1,5 @@
 import { useState, useRef, useLayoutEffect } from 'react'
-import { getIcon } from '@kubuno/sdk'
+import { resolveIcon } from '../elements/icons'
 import type { Element, ElementType } from '../types'
 import { useBuilder, currentPage, isContainerType } from '../store'
 import { describeDyn } from '../binding'
@@ -231,7 +231,7 @@ function Leaf({ el }: { el: Element }) {
     case 'divider':
       return <div style={css} />
     case 'icon': {
-      const Ico = getIcon((el.props.icon as string) || 'Star')
+      const Ico = resolveIcon((el.props.icon as string) || 'Star')
       return <span style={css}>{Ico ? <Ico size={(el.style.fontSize as number) || 24} /> : null}</span>
     }
     default:

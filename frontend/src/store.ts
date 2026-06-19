@@ -9,7 +9,7 @@
 
 import { create } from 'zustand'
 import type {
-  AppDefinition, Element, ElementType, Page, DataType, Field, Workflow,
+  AppDefinition, Element, ElementType, Page, DataType, Field, Workflow, Report,
 } from './types'
 
 let counter = 0
@@ -211,6 +211,82 @@ export function makeElement(type: ElementType): Element {
       base.style = { width: '240px', height: '220px' }
       break
 
+    // ── Lot 2 : data-viz & widgets « réclamés » ──
+    case 'chart':
+      base.props = { chartType: 'bar', data: 'Jan | 45\nFév | 72\nMar | 58\nAvr | 91', color: '#2563eb', height: 240, showValues: true }
+      base.style = { width: '100%' }
+      break
+    case 'table':
+      base.props = { columns: 'Produit | Stock | Prix', rows: 'Clavier | 120 | 49€\nSouris | 80 | 25€\nÉcran | 40 | 199€', striped: true, compact: false }
+      base.style = { width: '100%' }
+      break
+    case 'stat':
+      base.props = { label: 'Chiffre d’affaires', value: '24 580 €', delta: '+12,5 %', deltaLabel: 'ce mois', trend: 'up', icon: 'Wallet', iconColor: '#2563eb' }
+      base.style = { width: '240px' }
+      break
+    case 'steps':
+      base.props = { steps: 'Compte | Créez votre profil\nProfil | Complétez vos infos\nPaiement | Validez\nTerminé | C’est prêt !', current: 2, accent: '#2563eb' }
+      base.style = { width: '100%' }
+      break
+    case 'timeline':
+      base.props = { items: '2023 · Idée | Naissance du projet.\n2024 · Lancement | Première version publique.\n2025 · Croissance | Dix mille utilisateurs actifs.', accent: '#2563eb' }
+      base.style = {}
+      break
+    case 'carousel':
+      base.props = { images: [], autoplay: true, interval: 4000, showDots: true, showArrows: true, height: '300px' }
+      base.style = { width: '100%' }
+      break
+    case 'beforeAfter':
+      base.props = { before: '', after: '', height: '300px' }
+      base.style = { width: '100%' }
+      break
+    case 'progressCircle':
+      base.props = { value: 72, size: 120, color: '#2563eb', track: '#e2e8f0', label: 'Objectif', showValue: true }
+      base.style = {}
+      break
+    case 'badge':
+      base.props = { text: 'Nouveau', variant: 'primary', icon: '', pill: true }
+      base.style = {}
+      break
+    case 'breadcrumb':
+      base.props = { items: ['Accueil', 'Produits', 'Détail'], separator: '/' }
+      base.style = {}
+      break
+    case 'marquee':
+      base.props = { items: ['Kubuno', 'Open source', 'Self-hosted', 'Souverain', 'AGPLv3'], speed: 18 }
+      base.style = { padding: '12px 0' }
+      break
+    case 'animatedHeading':
+      base.props = { before: 'Créez des apps ', words: ['plus vite', 'sans code', 'à votre image'], after: '.', color: '#2563eb', interval: 2200 }
+      base.style = { textAlign: 'center' }
+      break
+
+    // ── Lot 3 : widgets « mobile / app » ──
+    case 'avatar':
+      base.props = { src: '', name: 'Alex Martin', size: 56, status: 'online' }
+      base.style = {}
+      break
+    case 'appBar':
+      base.props = { title: 'Messages', subtitle: '', leftIcon: '', avatar: '', rightIcons: 'Search,MoreVertical', backTo: '', status: '', bg: '#075e54', color: '#ffffff' }
+      base.style = { width: '100%' }
+      break
+    case 'bottomNav':
+      base.props = { items: 'MessageCircle | Discussions | \nUsers | Statuts | \nPhone | Appels | \nSettings | Réglages | ', active: 0, accent: '#075e54', bg: '#ffffff' }
+      base.style = { width: '100%' }
+      break
+    case 'tileList':
+      base.props = { items: 'Alex Martin | Salut, ça va ? | 09:24 | 2 | \nGroupe Famille | Maman : à table ! | 08:10 | | \nLéa Fontaine | Vu | Hier | | ', status: '', bg: '#ffffff' }
+      base.style = { width: '100%' }
+      break
+    case 'chatThread':
+      base.props = { messages: 'in | Salut ! Comment vas-tu ? | 09:20\nout | Très bien, merci 😄 et toi ? | 09:21\nin | Parfait. On se voit ce soir ? | 09:22\nout | Oui, avec plaisir ! | 09:24', bg: '#e5ddd5' }
+      base.style = { width: '100%', minHeight: '220px' }
+      break
+    case 'messageInput':
+      base.props = { placeholder: 'Message', accent: '#25d366', bg: '#f0f2f5' }
+      base.style = { width: '100%' }
+      break
+
     default:
       base.children = []
   }
@@ -228,6 +304,11 @@ function defaultName(type: ElementType): string {
     list: 'Liste', alert: 'Alerte', blockquote: 'Citation', rating: 'Notation', progress: 'Barre de progression',
     testimonial: 'Témoignage', priceTable: 'Tarif', cta: 'Appel à action', socialIcons: 'Réseaux sociaux',
     tabs: 'Onglets', accordion: 'Accordéon', counter: 'Compteur', countdown: 'Compte à rebours', flipBox: 'Carte retournable',
+    chart: 'Graphique', table: 'Tableau', stat: 'Indicateur', steps: 'Étapes', timeline: 'Chronologie',
+    carousel: 'Carrousel', beforeAfter: 'Avant / Après', progressCircle: 'Jauge circulaire', badge: 'Badge',
+    breadcrumb: 'Fil d’Ariane', marquee: 'Bandeau défilant', animatedHeading: 'Titre animé',
+    avatar: 'Avatar', appBar: 'Barre d’app', bottomNav: 'Navigation (bas)', tileList: 'Liste de tuiles',
+    chatThread: 'Fil de messages', messageInput: 'Zone de saisie',
   }
   return names[type]
 }
@@ -246,7 +327,7 @@ export function makePage(name: string): Page {
 
 // ── Store ────────────────────────────────────────────────────────────────────
 
-export type LeftTab = 'design' | 'data' | 'workflows' | 'settings'
+export type LeftTab = 'design' | 'data' | 'workflows' | 'reports' | 'settings'
 export type Device = 'desktop' | 'tablet' | 'mobile'
 
 interface BuilderState {
@@ -295,9 +376,11 @@ interface BuilderState {
 
   // Pages / données / workflows
   addPage: (name: string) => void
+  addPageDef: (page: Page) => void
   deletePage: (id: string) => void
   setDataTypes: (d: DataType[]) => void
   setWorkflows: (w: Workflow[]) => void
+  setReports: (r: Report[]) => void
 }
 
 export const currentPage = (s: BuilderState): Page | undefined =>
@@ -537,6 +620,24 @@ export const useBuilder = create<BuilderState>((set, get) => ({
     set({ currentPageId: page.id, selectedId: null })
   },
 
+  // Insère une page pré-construite (modèle) en régénérant tous les ids et en
+  // garantissant l'unicité de la route.
+  addPageDef: (page) => {
+    const { def, commit } = get()
+    if (!def) return
+    const next = structuredClone(def)
+    const fresh: Page = structuredClone(page)
+    fresh.id = uid('page')
+    fresh.root = cloneWithNewIds(fresh.root)
+    let route = fresh.route || uid('page')
+    const taken = new Set(next.pages.map((p) => p.route))
+    if (taken.has(route)) { let k = 2; while (taken.has(`${route}-${k}`)) k++; route = `${route}-${k}` }
+    fresh.route = route
+    next.pages.push(fresh)
+    commit(next)
+    set({ currentPageId: fresh.id, selectedId: null })
+  },
+
   deletePage: (id) => {
     const { def, commit, currentPageId } = get()
     if (!def || def.pages.length <= 1) return
@@ -560,6 +661,14 @@ export const useBuilder = create<BuilderState>((set, get) => ({
     if (!def) return
     const next = structuredClone(def)
     next.workflows = wf
+    commit(next)
+  },
+
+  setReports: (r) => {
+    const { def, commit } = get()
+    if (!def) return
+    const next = structuredClone(def)
+    next.reports = r
     commit(next)
   },
 }))
