@@ -77,7 +77,7 @@ export default function PageDialog({ onClose, onPick }: { onClose: () => void; o
             {savedShown.length > 0 && (
               <section className="mb-6">
                 <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400"><Sparkles size={13} /> {USER_THEME}</div>
-                <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:grid-cols-3">
                   {savedShown.map((t) => (
                     <div key={t.id} className="group relative">
                       <TemplateCard title={t.name} subtitle="Mon modèle" page={t.definition} onClick={() => pickSaved(t)} />
@@ -93,7 +93,7 @@ export default function PageDialog({ onClose, onPick }: { onClose: () => void; o
             {grouped.map(([th, items]) => (
               <section key={th} className="mb-6">
                 <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">{th}</div>
-                <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:grid-cols-3">
                   {items.map((t) => <TemplateCard key={t.id} title={t.name} subtitle={t.description} page={t.build()} onClick={() => pickBuiltin(t)} />)}
                 </div>
               </section>
