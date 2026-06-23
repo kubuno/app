@@ -2,7 +2,7 @@
 import { lazy } from 'react'
 import {
   RouteRegistry, CollapseSidebarRegistry, WaffleAppRegistry, FileTypeRegistry,
-  FaviconRegistry, useToolbarStore, SlotRegistry, SDK_VERSION,
+  FaviconRegistry, useToolbarStore, SlotRegistry, ModuleSettingsRegistry, SDK_VERSION,
 } from '@kubuno/sdk'
 import './index.css'
 import './i18n'
@@ -34,13 +34,16 @@ export function register() {
     { id: 'app', label: 'App', Icon: AppLogo, path: '/app' },
   ])
 
-  const AppDashboard = lazy(() => import('./AppDashboard'))
-  const AppBuilder   = lazy(() => import('./AppBuilder'))
-  const AppSettings  = lazy(() => import('./AppSettings'))
-  const PublicApp    = lazy(() => import('./PublicApp'))
+  // The header gear button opens the per-user App settings while in /app.
+  ModuleSettingsRegistry.register('app')
+
+  const AppDashboard    = lazy(() => import('./AppDashboard'))
+  const AppBuilder      = lazy(() => import('./AppBuilder'))
+  const AppSettingsPage = lazy(() => import('./AppSettingsPage'))
+  const PublicApp       = lazy(() => import('./PublicApp'))
 
   RouteRegistry.register('app',          AppDashboard)
-  RouteRegistry.register('app/settings', AppSettings)
+  RouteRegistry.register('app/settings', AppSettingsPage)
   // Vue publique d'une app publiée (hors-shell, accessible sans connexion).
   RouteRegistry.registerPublic('app/p/:slug', PublicApp)
   RouteRegistry.register('app/:id',      AppBuilder)

@@ -1,10 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useAuthStore, WorkspaceShell, DockArea, WORKSPACE_LIGHT, prompt, useNotificationStore, type DockPanel, type WorkspaceMenuItem } from '@kubuno/sdk'
+import { useTranslation } from 'react-i18next'
+import { format } from 'date-fns'
+import { useAuthStore, DockArea, WORKSPACE_LIGHT, getDateLocale, prompt, useNotificationStore, type DockPanel } from '@kubuno/sdk'
 import { Button, Input, Dropdown, ColorField } from '@ui'
 import {
   Undo2, Redo2, Monitor, Tablet, Smartphone, Play, X,
   Layout, Database, Zap, Settings as SettingsIcon, Plus, Globe, Check, ExternalLink, Copy, FileText,
+  Container, Heading, Type, MousePointerClick, Image as ImageIcon, Sparkles, Minus,
+  Rows3, ChevronsLeftRightEllipsis, LayoutGrid, Map as MapIcon, DollarSign, Repeat,
+  Scissors, ClipboardPaste, Trash2, FilePlus2, Pencil, LayoutTemplate, AppWindow,
 } from 'lucide-react'
 import { appApi } from './api'
 import { useBuilder, currentPage, findEl, isContainerType, type LeftTab, type Device } from './store'
@@ -19,15 +24,23 @@ import Canvas from './builder/Canvas'
 import BuilderToolbar from './builder/BuilderToolbar'
 import BuilderStatusBar from './builder/BuilderStatusBar'
 import AppRuntime from './runtime/AppRuntime'
+import { OfficeShell } from './shell/OfficeShell'
+import { SaveButton } from './ribbon/SaveButton'
+import { THEME_APP, fileAccentFor } from './ribbon/officeThemes'
+import { useFileTab, backstageLabels, InfoPanel } from './ribbon/ModuleBackstage'
+import AppStartContent from './AppStartContent'
+import type { RibbonTab } from './ribbon/types'
 import type { AppDefinition, ElementType } from './types'
 
 export default function AppBuilder() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { t, i18n } = useTranslation('app')
   const user = useAuthStore((s) => s.user)
   const [loading, setLoading] = useState(true)
   const [published, setPublished] = useState(false)
   const [slug, setSlug] = useState('')
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null)
   const [shareOpen, setShareOpen] = useState(false)
   const [pageDialogOpen, setPageDialogOpen] = useState(false)
 
@@ -62,6 +75,7 @@ export default function AppBuilder() {
       load(app.id, app.name, app.definition as AppDefinition)
       setPublished(app.is_published)
       setSlug(app.slug)
+      setUpdatedAt(app.updated_at ?? null)
       setLoading(false)
     }).catch(() => { setLoading(false) })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -79,6 +93,17 @@ export default function AppBuilder() {
     }, 700)
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current) }
   }, [def, dirty, appId, markSaved])
+
+  // Force an immediate save (shared Save button) — cancels the pending autosave
+  // debounce and persists the current definition right away. Keeps `saveStatus`
+  // and autosave intact (same path: appApi.update + markSaved + setSaving).
+  const save = async () => {
+    const st = useBuilder.getState()
+    if (!st.appId || !st.def) return
+    if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null }
+    setSaving(true)
+    try { await appApi.update(st.appId, { definition: st.def }); markSaved() } catch { /* ignore */ } finally { setSaving(false) }
+  }
 
   // Raccourcis : undo/redo + édition (dupliquer/copier/couper/coller/supprimer)
   useEffect(() => {
@@ -118,6 +143,34 @@ export default function AppBuilder() {
   // Bouton « Publier » de la topbar : publie (+ affiche le lien) ou, si déjà publié,
   // ré-ouvre le lien de partage.
   const onPublishClick = () => { if (published) setShareOpen(true); else publishApp(true) }
+
+  // ── Onglet « Fichier » (backstage façon Office) — TOUJOURS en 1ʳᵉ position du
+  //    ruban. Doit être appelé AVANT tout return anticipé (règles des hooks).
+  //    Le contenu « Accueil » réutilise le MÊME AppStartContent que le dashboard. ──
+  const { fileTab, activeTabId, onTabChange } = useFileTab({
+    theme: THEME_APP,
+    labels: backstageLabels(t),
+    startContent: <AppStartContent />,
+    defaultTab: 'home',
+    doc: {
+      info: (
+        <InfoPanel
+          title={appName || t('app')}
+          subtitle={t('app')}
+          rows={[
+            [t('office_bs_info_type', { defaultValue: 'Type' }), def?.settings?.kind === 'mobile' ? t('kind_mobile') : t('kind_web')],
+            [t('view_pages', { defaultValue: 'Pages' }), def?.pages.length ?? 0],
+            [t('published'), published ? t('yes', { defaultValue: 'Oui' }) : t('no', { defaultValue: 'Non' })],
+            ...(updatedAt
+              ? [[t('office_bs_info_modified', { defaultValue: 'Modifié le' }), format(new Date(updatedAt), 'd MMM yyyy', { locale: getDateLocale(i18n.language) })] as [string, string]]
+              : []),
+          ]}
+        />
+      ),
+      onPrint: () => window.print(),
+      onClose: () => navigate('/app'),
+    },
+  })
 
   if (loading || !def) {
     return <div className="flex h-full items-center justify-center text-slate-400">Chargement…</div>
@@ -203,76 +256,112 @@ export default function AppBuilder() {
       notify({ title: 'Échec', body: 'Impossible d’enregistrer le modèle de page.', moduleId: 'app', icon: 'AlertTriangle' })
     }
   }
-  const menus: { label: string; items: WorkspaceMenuItem[] }[] = [
-    { label: 'Fichier', items: [
-      { label: 'Aperçu', onClick: togglePreview, shortcut: 'Ctrl+P' },
-      { label: published ? 'Dépublier' : 'Publier…', onClick: () => publishApp(!published) },
-      ...(published ? [{ label: 'Lien de partage…', onClick: () => setShareOpen(true) }] : []),
-      'sep',
-      { label: "Retour à l'accueil", onClick: () => navigate('/app') },
-    ]},
-    { label: 'Édition', items: [
-      { label: 'Annuler', onClick: undo, shortcut: 'Ctrl+Z', disabled: !canUndo },
-      { label: 'Rétablir', onClick: redo, shortcut: 'Ctrl+Y', disabled: !canRedo },
-      'sep',
-      { label: 'Copier', onClick: () => selectedId && s().copyElement(selectedId), shortcut: 'Ctrl+C', disabled: !selectedId },
-      { label: 'Couper', onClick: () => selectedId && s().cutElement(selectedId), shortcut: 'Ctrl+X', disabled: !selectedId },
-      { label: 'Coller', onClick: pasteSmart, shortcut: 'Ctrl+V', disabled: !hasClipboard },
-      { label: 'Dupliquer', onClick: () => selectedId && s().duplicateElement(selectedId), shortcut: 'Ctrl+D', disabled: !selectedId },
-      'sep',
-      { label: 'Supprimer', onClick: () => selectedId && s().deleteElement(selectedId), shortcut: 'Suppr', disabled: !selectedId },
-    ]},
-    { label: 'Insertion', items: [
-      { label: 'Conteneur', onClick: () => insert('container') },
-      { label: 'Titre', onClick: () => insert('heading') },
-      { label: 'Texte', onClick: () => insert('text') },
-      { label: 'Bouton', onClick: () => insert('button') },
-      { label: 'Image', onClick: () => insert('image') },
-      { label: 'Icône', onClick: () => insert('icon') },
-      { label: 'Séparateur', onClick: () => insert('divider') },
-      'sep',
-      { label: 'Onglets', onClick: () => insert('tabs') },
-      { label: 'Accordéon', onClick: () => insert('accordion') },
-      { label: 'Galerie', onClick: () => insert('gallery') },
-      { label: 'Carte', onClick: () => insert('map') },
-      { label: 'Tarif', onClick: () => insert('priceTable') },
-      { label: 'Liste répétée (données)', onClick: () => insert('repeatingGroup') },
-    ]},
-    { label: 'Page', items: [
-      { label: 'Nouvelle page…', onClick: () => setPageDialogOpen(true) },
-      { label: 'Renommer la page…', onClick: renamePage },
-      { label: 'Supprimer la page', onClick: () => pageObj && s().deletePage(pageObj.id), disabled: pagesCount <= 1 },
-      'sep',
-      { label: 'Enregistrer comme modèle…', onClick: savePageAsTemplate },
-      { label: 'Réglages de la page…', onClick: () => setLeftTab('settings') },
-    ]},
-    { label: 'Affichage', items: [
-      { label: 'Design', onClick: () => setLeftTab('design') },
-      { label: 'Données', onClick: () => setLeftTab('data') },
-      { label: 'Workflows', onClick: () => setLeftTab('workflows') },
-      { label: 'Rapports', onClick: () => setLeftTab('reports') },
-      { label: 'Réglages', onClick: () => setLeftTab('settings') },
-      'sep',
-      { label: 'Ordinateur', onClick: () => setDevice('desktop') },
-      { label: 'Tablette', onClick: () => setDevice('tablet') },
-      { label: 'Téléphone', onClick: () => setDevice('mobile') },
-    ]},
-    { label: 'Aide', items: [
-      { label: 'À propos de l’éditeur App', onClick: () => {} },
-    ]},
+  // ── Ruban (façon MS Office) — reprend l'INTÉGRALITÉ des anciennes barres de menus
+  //    (Fichier/Édition/Insertion/Page/Affichage/Aide) + l'options bar contextuelle
+  //    (BuilderToolbar → onglet contextuel « Format »). Aucune action perdue. Le
+  //    groupe « Fichier » lui-même vit dans le backstage (onglet Fichier, ci-dessus) ;
+  //    Aperçu/Publier restent aussi en topbarActions. ────────────────────────────
+  const appRibbon: RibbonTab[] = [
+    // ── Accueil ──
+    { id: 'home', label: t('doc_tab_home', { defaultValue: 'Accueil' }), groups: [
+      { id: 'history', label: t('grp_history', { defaultValue: 'Historique' }), items: [
+        { id: 'undo', kind: 'button', size: 'large', icon: <Undo2 size={18} />, label: t('undo', { defaultValue: 'Annuler' }), shortcut: 'Ctrl+Z', disabled: !canUndo, onClick: undo },
+        { id: 'redo', kind: 'button', icon: <Redo2 size={15} />, label: t('redo', { defaultValue: 'Rétablir' }), shortcut: 'Ctrl+Y', disabled: !canRedo, onClick: redo },
+      ] },
+      { id: 'clip', label: t('grp_clipboard', { defaultValue: 'Presse-papiers' }), items: [
+        { id: 'paste', kind: 'button', size: 'large', icon: <ClipboardPaste size={18} />, label: t('paste', { defaultValue: 'Coller' }), shortcut: 'Ctrl+V', disabled: !hasClipboard, onClick: pasteSmart },
+        { id: 'copy', kind: 'button', icon: <Copy size={15} />, label: t('copy', { defaultValue: 'Copier' }), shortcut: 'Ctrl+C', disabled: !selectedId, onClick: () => selectedId && s().copyElement(selectedId) },
+        { id: 'cut', kind: 'button', icon: <Scissors size={15} />, label: t('cut', { defaultValue: 'Couper' }), shortcut: 'Ctrl+X', disabled: !selectedId, onClick: () => selectedId && s().cutElement(selectedId) },
+        { id: 'dup', kind: 'button', icon: <Copy size={15} />, label: t('duplicate'), shortcut: 'Ctrl+D', disabled: !selectedId, onClick: () => selectedId && s().duplicateElement(selectedId) },
+      ] },
+      { id: 'edit', label: t('grp_editing', { defaultValue: 'Édition' }), items: [
+        { id: 'del', kind: 'button', icon: <Trash2 size={15} />, label: t('delete'), shortcut: 'Suppr', disabled: !selectedId, onClick: () => selectedId && s().deleteElement(selectedId) },
+      ] },
+      { id: 'pages', label: t('view_pages', { defaultValue: 'Pages' }), items: [
+        { id: 'newpage', kind: 'button', size: 'large', icon: <FilePlus2 size={18} />, label: t('page_new', { defaultValue: 'Nouvelle page' }), onClick: () => setPageDialogOpen(true) },
+      ] },
+      { id: 'publish', label: t('app'), items: [
+        { id: 'preview', kind: 'button', size: 'large', icon: <Play size={18} />, label: t('preview', { defaultValue: 'Aperçu' }), shortcut: 'Ctrl+P', onClick: togglePreview },
+        { id: 'pub', kind: 'button', icon: published ? <Check size={15} /> : <Globe size={15} />, label: published ? t('unpublish', { defaultValue: 'Dépublier' }) : t('publish', { defaultValue: 'Publier' }), onClick: () => publishApp(!published) },
+        ...(published ? [{ id: 'share', kind: 'button' as const, icon: <ExternalLink size={15} />, label: t('share_link', { defaultValue: 'Lien de partage' }), onClick: () => setShareOpen(true) }] : []),
+      ] },
+    ] },
+    // ── Insertion ──
+    { id: 'insert', label: t('tab_insert', { defaultValue: 'Insertion' }), groups: [
+      { id: 'basic', label: t('grp_elements', { defaultValue: 'Éléments' }), items: [
+        { id: 'i-container', kind: 'button', size: 'large', icon: <Container size={18} />, label: t('el_container', { defaultValue: 'Conteneur' }), onClick: () => insert('container') },
+        { id: 'i-heading', kind: 'button', icon: <Heading size={15} />, label: t('el_heading', { defaultValue: 'Titre' }), onClick: () => insert('heading') },
+        { id: 'i-text', kind: 'button', icon: <Type size={15} />, label: t('el_text', { defaultValue: 'Texte' }), onClick: () => insert('text') },
+        { id: 'i-button', kind: 'button', icon: <MousePointerClick size={15} />, label: t('el_button', { defaultValue: 'Bouton' }), onClick: () => insert('button') },
+        { id: 'i-image', kind: 'button', icon: <ImageIcon size={15} />, label: t('el_image', { defaultValue: 'Image' }), onClick: () => insert('image') },
+        { id: 'i-icon', kind: 'button', icon: <Sparkles size={15} />, label: t('el_icon', { defaultValue: 'Icône' }), onClick: () => insert('icon') },
+        { id: 'i-divider', kind: 'button', icon: <Minus size={15} />, label: t('el_divider', { defaultValue: 'Séparateur' }), onClick: () => insert('divider') },
+      ] },
+      { id: 'components', label: t('grp_components', { defaultValue: 'Composants' }), items: [
+        { id: 'i-tabs', kind: 'button', size: 'large', icon: <Rows3 size={18} />, label: t('el_tabs', { defaultValue: 'Onglets' }), onClick: () => insert('tabs') },
+        { id: 'i-accordion', kind: 'button', icon: <ChevronsLeftRightEllipsis size={15} />, label: t('el_accordion', { defaultValue: 'Accordéon' }), onClick: () => insert('accordion') },
+        { id: 'i-gallery', kind: 'button', icon: <LayoutGrid size={15} />, label: t('el_gallery', { defaultValue: 'Galerie' }), onClick: () => insert('gallery') },
+        { id: 'i-map', kind: 'button', icon: <MapIcon size={15} />, label: t('el_map', { defaultValue: 'Carte' }), onClick: () => insert('map') },
+        { id: 'i-price', kind: 'button', icon: <DollarSign size={15} />, label: t('el_price', { defaultValue: 'Tarif' }), onClick: () => insert('priceTable') },
+        { id: 'i-repeat', kind: 'button', icon: <Repeat size={15} />, label: t('el_repeating', { defaultValue: 'Liste répétée' }), tooltip: t('el_repeating_tip', { defaultValue: 'Liste répétée (données)' }), onClick: () => insert('repeatingGroup') },
+      ] },
+    ] },
+    // ── Page ──
+    { id: 'page', label: t('tab_page', { defaultValue: 'Page' }), groups: [
+      { id: 'page-manage', label: t('view_pages', { defaultValue: 'Pages' }), items: [
+        { id: 'p-new', kind: 'button', size: 'large', icon: <FilePlus2 size={18} />, label: t('page_new', { defaultValue: 'Nouvelle page' }), onClick: () => setPageDialogOpen(true) },
+        { id: 'p-rename', kind: 'button', icon: <Pencil size={15} />, label: t('page_rename', { defaultValue: 'Renommer' }), onClick: renamePage },
+        { id: 'p-delete', kind: 'button', icon: <Trash2 size={15} />, label: t('page_delete', { defaultValue: 'Supprimer la page' }), disabled: pagesCount <= 1, onClick: () => pageObj && s().deletePage(pageObj.id) },
+      ] },
+      { id: 'page-tools', label: t('grp_advanced', { defaultValue: 'Avancé' }), items: [
+        { id: 'p-tpl', kind: 'button', size: 'large', icon: <LayoutTemplate size={18} />, label: t('page_save_template', { defaultValue: 'Enregistrer comme modèle' }), onClick: savePageAsTemplate },
+        { id: 'p-settings', kind: 'button', icon: <SettingsIcon size={15} />, label: t('page_settings', { defaultValue: 'Réglages de la page' }), onClick: () => setLeftTab('settings') },
+      ] },
+    ] },
+    // ── Affichage ──
+    { id: 'view', label: t('tab_view', { defaultValue: 'Affichage' }), groups: [
+      { id: 'view-modes', label: t('grp_modes', { defaultValue: 'Modes' }), items: [
+        { id: 'v-design', kind: 'toggle', size: 'large', icon: <Layout size={18} />, label: t('mode_design', { defaultValue: 'Design' }), active: leftTab === 'design', onClick: () => setLeftTab('design') },
+        { id: 'v-data', kind: 'toggle', icon: <Database size={15} />, label: t('mode_data', { defaultValue: 'Données' }), active: leftTab === 'data', onClick: () => setLeftTab('data') },
+        { id: 'v-workflows', kind: 'toggle', icon: <Zap size={15} />, label: t('mode_workflows', { defaultValue: 'Workflows' }), active: leftTab === 'workflows', onClick: () => setLeftTab('workflows') },
+        { id: 'v-reports', kind: 'toggle', icon: <FileText size={15} />, label: t('mode_reports', { defaultValue: 'Rapports' }), active: leftTab === 'reports', onClick: () => setLeftTab('reports') },
+        { id: 'v-settings', kind: 'toggle', icon: <SettingsIcon size={15} />, label: t('mode_settings', { defaultValue: 'Réglages' }), active: leftTab === 'settings', onClick: () => setLeftTab('settings') },
+      ] },
+      { id: 'view-device', label: t('grp_device', { defaultValue: 'Appareil' }), items: [
+        { id: 'd-desktop', kind: 'toggle', size: 'large', icon: <Monitor size={18} />, label: t('device_desktop', { defaultValue: 'Ordinateur' }), active: device === 'desktop', onClick: () => setDevice('desktop') },
+        { id: 'd-tablet', kind: 'toggle', icon: <Tablet size={15} />, label: t('device_tablet', { defaultValue: 'Tablette' }), active: device === 'tablet', onClick: () => setDevice('tablet') },
+        { id: 'd-mobile', kind: 'toggle', icon: <Smartphone size={15} />, label: t('device_mobile', { defaultValue: 'Téléphone' }), active: device === 'mobile', onClick: () => setDevice('mobile') },
+      ] },
+    ] },
+    // ── Aide ──
+    { id: 'help', label: t('tab_help', { defaultValue: 'Aide' }), groups: [
+      { id: 'help-grp', label: t('tab_help', { defaultValue: 'Aide' }), items: [
+        { id: 'about', kind: 'button', size: 'large', icon: <AppWindow size={18} />, label: t('help_about', { defaultValue: 'À propos de l’éditeur App' }), onClick: () => {} },
+      ] },
+    ] },
+    // ── Format (CONTEXTUEL) — n'apparaît qu'avec un objet sélectionné, liseré violet.
+    //    Réutilise l'ancienne options bar (BuilderToolbar) telle quelle via un item
+    //    `custom`, donc TOUTES ses actions (align/taille/couleur/disposition/dupliquer/
+    //    monter/descendre/supprimer) restent disponibles. ──────────────────────────
+    { id: 'format', label: t('tab_format', { defaultValue: 'Format' }), contextual: { accent: fileAccentFor(THEME_APP.accent) }, visible: leftTab === 'design' && !!selectedId, groups: [
+      { id: 'fmt', label: t('tab_format', { defaultValue: 'Format' }), items: [
+        { id: 'fmt-tools', kind: 'custom', render: <div className="flex items-center px-1 py-1"><BuilderToolbar /></div> },
+      ] },
+    ] },
   ]
 
   return (
     <>
-    <WorkspaceShell
+    <OfficeShell
+      ribbon={[fileTab, ...appRibbon]}
+      activeTabId={activeTabId}
+      onTabChange={onTabChange}
       chromeless
-      theme={WORKSPACE_LIGHT}
+      theme={THEME_APP}
       onBack={() => navigate('/app')}
       title={appName}
       subtitle="App"
-      menus={menus}
-      optionsBar={leftTab === 'design' ? <BuilderToolbar /> : undefined}
-      optionsBarHeight={40}
+      titleActions={<SaveButton onSave={save} saving={saving} dirty={dirty} label={t('save', { defaultValue: 'Enregistrer' })} />}
       statusBar={leftTab === 'design' ? <BuilderStatusBar /> : undefined}
       statusHeight={26}
       saveStatus={<span className="text-[11px] text-text-tertiary">{saving ? 'Enregistrement…' : dirty ? 'Modifié' : 'Enregistré'}</span>}
@@ -311,7 +400,7 @@ export default function AppBuilder() {
       >
         {viewport}
       </DockArea>
-    </WorkspaceShell>
+    </OfficeShell>
     {shareOpen && <PublishDialog url={shareUrl} published={published} onUnpublish={() => { publishApp(false); setShareOpen(false) }} onClose={() => setShareOpen(false)} />}
     {pageDialogOpen && <PageDialog onClose={() => setPageDialogOpen(false)} onPick={(page) => addPageDef(page)} />}
     </>

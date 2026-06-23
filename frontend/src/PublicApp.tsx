@@ -31,8 +31,8 @@ export default function PublicApp() {
   const kind = data.definition.settings?.kind
   const maxWidth = kind === 'mobile' ? 430 : 1100
   return (
-    <div className="min-h-screen w-full overflow-auto bg-slate-100">
-      <div className="mx-auto min-h-screen bg-white shadow-xl" style={{ maxWidth }}>
+    <div className="min-h-screen w-full overflow-auto bg-slate-100 print:bg-white print:overflow-visible print:min-h-0">
+      <div className="mx-auto min-h-screen bg-white shadow-xl print:shadow-none print:max-w-none print:min-h-0" style={{ maxWidth }}>
         {/* appId réel (data.id) → routes de données PARTAGÉES ; currentUser si
             connecté → identité réelle (messagerie multi-comptes). */}
         <AppRuntime def={data.definition} appId={data.id} publicSlug={slug}
