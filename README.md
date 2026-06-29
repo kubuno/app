@@ -62,6 +62,12 @@ shared specifiers (`react`, `@kubuno/sdk`, `@ui`, …) are resolved by the host 
 - The builder canvas and the `AppRuntime` share the same element tree, so adding a
   widget is one model + one shared renderer.
 
+## Install
+
+This module ships in the **all-in-one [Kubuno](https://github.com/kubuno/core) Docker image** (`ghcr.io/kubuno/kubuno`) — the easiest way to self-host a full Kubuno instance (core + every module). See **[kubuno/docker](https://github.com/kubuno/docker)** for `docker compose` instructions.
+
+To build this module from source (Debian package), see below.
+
 ## Development
 
 ```bash
