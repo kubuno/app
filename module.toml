@@ -1,7 +1,7 @@
 [module]
 id           = "app"
 display_name = "App"
-version      = "0.1.0"
+version      = "0.1.2"
 description  = "Plateforme no-code visuelle — construisez des applications web complètes (pages, données, workflows) sans code"
 author       = "Kubuno Contributors"
 license      = "AGPL-3.0"

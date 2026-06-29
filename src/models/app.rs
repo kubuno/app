@@ -21,6 +21,8 @@ pub struct Application {
     pub is_published: bool,
     pub tags:         Vec<String>,
     pub is_trashed:   bool,
+    /// Whether the app is flagged as a favorite by its owner.
+    pub is_starred:   bool,
     pub created_at:   DateTime<Utc>,
     pub updated_at:   DateTime<Utc>,
 }
@@ -53,4 +55,6 @@ pub struct UpdateAppDto {
     pub tags: Option<Vec<String>>,
     #[serde(default)]
     pub is_published: Option<bool>,
+    #[serde(default)]
+    pub is_starred: Option<bool>,
 }

@@ -165,6 +165,7 @@ pub async fn update(
     let description = dto.description.or(existing.description);
     let tags = dto.tags.unwrap_or(existing.tags);
     let is_published = dto.is_published.unwrap_or(existing.is_published);
+    let is_starred = dto.is_starred.unwrap_or(existing.is_starred);
 
     let (file_id, definition) = match dto.definition {
         Some(def) => {
@@ -187,7 +188,7 @@ pub async fn update(
     let mut app = sqlx::query_as::<_, Application>(
         r#"UPDATE app.apps SET
             name = $2, description = $3, file_id = $4, tags = $5, is_published = $6,
-            is_shared = $7, shared_types = $8
+            is_shared = $7, shared_types = $8, is_starred = $9
            WHERE id = $1 RETURNING *"#,
     )
     .bind(id)
@@ -198,6 +199,7 @@ pub async fn update(
     .bind(is_published)
     .bind(!shared_types.is_empty())
     .bind(&shared_types)
+    .bind(is_starred)
     .fetch_one(&state.db)
     .await?;
     app.definition = definition;
