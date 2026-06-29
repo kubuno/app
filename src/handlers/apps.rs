@@ -108,21 +108,53 @@ async fn fetch_owned_full(state: &AppState, id: Uuid, owner: Uuid) -> Result<App
     Ok(app)
 }
 
+/// Fetches an app accessible to `user_id` (owner OR shared collaborator). Returns the
+/// row and whether the user is the owner. Collaborators see the app the owner owns.
+async fn fetch_accessible(state: &AppState, id: Uuid, user_id: Uuid) -> Result<(Application, bool)> {
+    let app = sqlx::query_as::<_, Application>("SELECT * FROM app.apps WHERE id = $1")
+        .bind(id)
+        .fetch_optional(&state.db)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Application introuvable".into()))?;
+    if app.owner_id == user_id {
+        return Ok((app, true));
+    }
+    let is_collab: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM app.app_collaborators WHERE app_id = $1 AND user_id = $2)",
+    )
+    .bind(id).bind(user_id)
+    .fetch_one(&state.db).await?;
+    if is_collab {
+        Ok((app, false))
+    } else {
+        Err(AppError::NotFound("Application introuvable".into()))
+    }
+}
+
 /// GET /apps/:id — application complète (avec sa définition).
 pub async fn get(
     State(state): State<AppState>,
     user: AppUserExt,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Application>> {
-    let mut app = fetch_owned_full(&state, id, user.id).await?;
-    // Nom = nom du fichier .kbapp ; self-heal si renommé ailleurs (drive).
-    if let Some(fid) = app.file_id {
-        if let Some(fname) = cf::file_name(&state, user.id, fid).await {
-            let stem = cf::strip_ext(&fname);
-            if !stem.is_empty() && stem != app.name {
-                sqlx::query("UPDATE app.apps SET name = $2 WHERE id = $1")
-                    .bind(id).bind(&stem).execute(&state.db).await?;
-                app.name = stem;
+    // Owner OR shared collaborator. The .kbapp file lives in the OWNER's Drive, so
+    // the definition is always read under the owner's identity.
+    let (mut app, is_owner) = fetch_accessible(&state, id, user.id).await?;
+    let owner = app.owner_id;
+    app.definition = match app.file_id {
+        Some(fid) => cf::read_definition(&state, owner, fid).await.unwrap_or_else(|_| cf::empty_definition()),
+        None => cf::empty_definition(),
+    };
+    // Nom = nom du fichier .kbapp ; self-heal si renommé ailleurs (owner uniquement).
+    if is_owner {
+        if let Some(fid) = app.file_id {
+            if let Some(fname) = cf::file_name(&state, user.id, fid).await {
+                let stem = cf::strip_ext(&fname);
+                if !stem.is_empty() && stem != app.name {
+                    sqlx::query("UPDATE app.apps SET name = $2 WHERE id = $1")
+                        .bind(id).bind(&stem).execute(&state.db).await?;
+                    app.name = stem;
+                }
             }
         }
     }

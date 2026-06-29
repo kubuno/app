@@ -6,6 +6,8 @@ import { describeDyn } from '../binding'
 import { elementCss, asCss, deviceWidth } from '../elements/style'
 import { renderWidget } from '../elements/widgets'
 import { CanvasMenuProvider, useCanvasMenu } from './CanvasMenu'
+import { useCollabAwareness } from '../collab/CollabContext'
+import { RemoteCollab } from './RemoteCollab'
 
 export const DRAG_MIME = 'application/x-app-element'
 
@@ -30,6 +32,10 @@ function CanvasSurface() {
   const setCanvasZoom = useBuilder((s) => s.setCanvasZoom)
   const select = useBuilder((s) => s.select)
   const { open } = useCanvasMenu()
+  const awareness = useCollabAwareness()
+  // Page-content frame (white page) — shared coordinate reference for collab cursors.
+  const frameRef = useRef<HTMLDivElement>(null)
+  const lastPub = useRef(0)
   if (!def || !page) return null
 
   const width = deviceWidth(device)
@@ -43,12 +49,27 @@ function CanvasSurface() {
     setCanvasZoom(zoom + (e.deltaY < 0 ? 0.1 : -0.1))
   }
 
+  // Publish the local mouse position in unzoomed page-content coordinates (relative
+  // to the page frame) → collaborators render it via RemoteCursors (throttled ~40ms).
+  const onMouseMove = (e: React.MouseEvent) => {
+    if (!awareness || !frameRef.current) return
+    const now = performance.now()
+    if (now - lastPub.current < 40) return
+    lastPub.current = now
+    const r = frameRef.current.getBoundingClientRect()
+    const z = zoom || 1
+    awareness.setLocalStateField('cursor', { x: (e.clientX - r.left) / z, y: (e.clientY - r.top) / z, page: page.id })
+  }
+  const onMouseLeave = () => { if (awareness) awareness.setLocalStateField('cursor', null) }
+
   return (
     <div
       className="flex-1 min-h-0 overflow-auto bg-[var(--app-canvas-bg)] p-8"
       onClick={() => select(null)}
       onContextMenu={(e) => open(e, null)}
       onWheel={onWheel}
+      onMouseMove={onMouseMove}
+      onMouseLeave={onMouseLeave}
       data-testid="app-canvas"
     >
       <div
@@ -62,8 +83,9 @@ function CanvasSurface() {
           zoom,   // zoom CSS : scale layout-aware → scroll & centrage natifs
         }}
       >
-        <div style={{ borderRadius: phone ? 24 : 4, overflow: 'hidden', background: '#fff', minHeight: phone ? 580 : 600 }}>
+        <div ref={frameRef} style={{ position: 'relative', borderRadius: phone ? 24 : 4, overflow: 'hidden', background: '#fff', minHeight: phone ? 580 : 600 }}>
           <EditNode el={page.root} />
+          {awareness && <RemoteCollab awareness={awareness} pageId={page.id} zoom={zoom} frameRef={frameRef} />}
         </div>
       </div>
     </div>

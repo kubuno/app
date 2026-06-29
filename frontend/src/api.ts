@@ -1,6 +1,19 @@
 import { api } from '@kubuno/sdk'
 import type { Application, AppDefinition, ConstraintDef, Page } from './types'
 
+/** Partage utilisateur-à-utilisateur (collaboration temps réel). */
+export type CollabPermission = 'view' | 'comment' | 'edit'
+export interface Recipient {
+  id:           string
+  display_name: string | null
+  email:        string
+  avatar_url:   string | null
+}
+export interface CollaboratorEntry extends Recipient {
+  user_id:    string
+  permission: CollabPermission
+}
+
 /** Modèle de page réutilisable (persisté côté backend, par utilisateur). */
 export interface SavedPageTemplate {
   id:         string
@@ -136,5 +149,27 @@ export const appApi = {
   },
   async sharedDelete(appId: string, type: string, rid: string): Promise<void> {
     await api.delete(`/app/apps/${appId}/shared/${encodeURIComponent(type)}/${rid}`)
+  },
+
+  // ── Partage utilisateur-à-utilisateur (collaborateurs temps réel) ────────────
+  async searchRecipients(q: string): Promise<Recipient[]> {
+    const { data } = await api.get(`/app/recipients`, { params: { q } })
+    return data.recipients ?? []
+  },
+  async listCollaborators(appId: string): Promise<{ owner: Recipient | null; collaborators: CollaboratorEntry[] }> {
+    const { data } = await api.get(`/app/apps/${appId}/collaborators`)
+    return data
+  },
+  async addCollaborator(appId: string, userId: string, permission: CollabPermission): Promise<unknown> {
+    const { data } = await api.post(`/app/apps/${appId}/collaborators`, { user_id: userId, permission })
+    return data
+  },
+  async updateCollaborator(appId: string, userId: string, permission: CollabPermission): Promise<unknown> {
+    const { data } = await api.patch(`/app/apps/${appId}/collaborators/${userId}`, { permission })
+    return data
+  },
+  async removeCollaborator(appId: string, userId: string): Promise<unknown> {
+    const { data } = await api.delete(`/app/apps/${appId}/collaborators/${userId}`)
+    return data
   },
 }
