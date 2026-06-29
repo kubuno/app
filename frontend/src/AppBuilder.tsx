@@ -10,7 +10,7 @@ import {
   Layout, Database, Zap, Settings as SettingsIcon, Plus, Globe, Check, ExternalLink, Copy, FileText,
   Container, Heading, Type, MousePointerClick, Image as ImageIcon, Sparkles, Minus,
   Rows3, ChevronsLeftRightEllipsis, LayoutGrid, Map as MapIcon, DollarSign, Repeat,
-  Scissors, ClipboardPaste, Trash2, FilePlus2, Pencil, LayoutTemplate, AppWindow, Star,
+  Scissors, ClipboardPaste, Trash2, FilePlus2, Pencil, LayoutTemplate, AppWindow, Star, UserPlus,
 } from 'lucide-react'
 import { appApi } from './api'
 import { useBuilder, currentPage, findEl, isContainerType, type LeftTab, type Device } from './store'
@@ -29,6 +29,10 @@ import { OfficeShell } from './shell/OfficeShell'
 import { SaveButton } from './ribbon/SaveButton'
 import { UndoRedoButtons } from './ribbon/UndoRedoButtons'
 import { AppLogo } from './AppLogo'
+import { useAppCollab } from './collab/useAppCollab'
+import { PresenceAvatarList } from './collab/presence'
+import { CollabContext } from './collab/CollabContext'
+import ShareDialog from './ShareDialog'
 import { THEME_APP, fileAccentFor } from './ribbon/officeThemes'
 import { useFileTab, backstageLabels, InfoPanel } from './ribbon/ModuleBackstage'
 import AppStartContent from './AppStartContent'
@@ -47,7 +51,13 @@ export default function AppBuilder() {
   const [slug, setSlug] = useState('')
   const [updatedAt, setUpdatedAt] = useState<string | null>(null)
   const [shareOpen, setShareOpen] = useState(false)
+  const [collabShareOpen, setCollabShareOpen] = useState(false)
+  const [ownerId, setOwnerId] = useState<string | null>(null)
   const [pageDialogOpen, setPageDialogOpen] = useState(false)
+  // Owner vs collaborator : only the owner persists to Drive / publishes / shares ;
+  // collaborators co-edit live through the shared collab room. Default true until the
+  // app is loaded so the owner is never momentarily blocked.
+  const isOwner = !ownerId || ownerId === user?.id
 
   const def = useBuilder((s) => s.def)
   const appId = useBuilder((s) => s.appId)
@@ -64,6 +74,11 @@ export default function AppBuilder() {
   const undo = useBuilder((s) => s.undo)
   const redo = useBuilder((s) => s.redo)
   const addPageDef = useBuilder((s) => s.addPageDef)
+
+  // Collaboration temps réel (présence + synchro de la définition) — activée une
+  // fois l'app chargée pour que la room s'appuie sur la définition initiale.
+  const { presenceUsers, awareness } = useAppCollab(loading ? null : (id ?? null))
+
   // États réactifs pour activer/désactiver les entrées de menus.
   const selectedId = useBuilder((s) => s.selectedId)
   const hasClipboard = useBuilder((s) => !!s.clipboard)
@@ -78,6 +93,7 @@ export default function AppBuilder() {
     setLoading(true)
     appApi.get(id).then((app) => {
       load(app.id, app.name, app.definition as AppDefinition)
+      setOwnerId(app.owner_id)
       setPublished(app.is_published)
       setIsStarred(app.is_starred)
       setSlug(app.slug)
@@ -92,20 +108,23 @@ export default function AppBuilder() {
   const [saving, setSaving] = useState(false)
   useEffect(() => {
     if (!dirty || !def || !appId) return
+    // Collaborators don't persist to Drive (the .kbapp belongs to the owner) — their
+    // edits live in the shared collab room (core-persisted). Just clear the flag.
+    if (!isOwner) { markSaved(); return }
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(async () => {
       setSaving(true)
       try { await appApi.update(appId, { definition: def }); markSaved() } catch { /* ignore */ } finally { setSaving(false) }
     }, 700)
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current) }
-  }, [def, dirty, appId, markSaved])
+  }, [def, dirty, appId, markSaved, isOwner])
 
   // Force an immediate save (shared Save button) — cancels the pending autosave
   // debounce and persists the current definition right away. Keeps `saveStatus`
   // and autosave intact (same path: appApi.update + markSaved + setSaving).
   const save = async () => {
     const st = useBuilder.getState()
-    if (!st.appId || !st.def) return
+    if (!st.appId || !st.def || !isOwner) return
     if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null }
     setSaving(true)
     try { await appApi.update(st.appId, { definition: st.def }); markSaved() } catch { /* ignore */ } finally { setSaving(false) }
@@ -375,7 +394,7 @@ export default function AppBuilder() {
   ]
 
   return (
-    <>
+    <CollabContext.Provider value={awareness}>
     <OfficeShell
       ribbon={[fileTab, ...appRibbon]}
       activeTabId={activeTabId}
@@ -415,12 +434,21 @@ export default function AppBuilder() {
       saveStatus={<span className="text-[11px] text-text-tertiary">{saving ? 'Enregistrement…' : dirty ? 'Modifié' : 'Enregistré'}</span>}
       topbarActions={
         <div className="flex items-center gap-2">
+          <PresenceAvatarList users={presenceUsers} />
           <DevicePicker device={device} setDevice={setDevice} />
           {/* Style blanc translucide : lisible sur la topbar colorée (cf. « Partager » du tableur). */}
-          <button type="button" onClick={onPublishClick}
-            className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-white/15 text-white text-sm font-medium border border-white/25 hover:bg-white/25 transition-colors">
-            {published ? <Check size={15} /> : <Globe size={15} />} {published ? 'Publié' : 'Publier'}
-          </button>
+          {isOwner && (
+            <button type="button" onClick={() => setCollabShareOpen(true)} title="Partager (collaboration temps réel)"
+              className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-white/15 text-white text-sm font-medium border border-white/25 hover:bg-white/25 transition-colors">
+              <UserPlus size={15} /> Partager
+            </button>
+          )}
+          {isOwner && (
+            <button type="button" onClick={onPublishClick}
+              className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-white/15 text-white text-sm font-medium border border-white/25 hover:bg-white/25 transition-colors">
+              {published ? <Check size={15} /> : <Globe size={15} />} {published ? 'Publié' : 'Publier'}
+            </button>
+          )}
           <Button variant="primary" size="sm" icon={<Play size={14} />} onClick={togglePreview}>Aperçu</Button>
         </div>
       }
@@ -450,7 +478,8 @@ export default function AppBuilder() {
     </OfficeShell>
     {shareOpen && <PublishDialog url={shareUrl} published={published} onUnpublish={() => { publishApp(false); setShareOpen(false) }} onClose={() => setShareOpen(false)} />}
     {pageDialogOpen && <PageDialog onClose={() => setPageDialogOpen(false)} onPick={(page) => addPageDef(page)} />}
-    </>
+    {collabShareOpen && appId && <ShareDialog appId={appId} onClose={() => setCollabShareOpen(false)} />}
+    </CollabContext.Provider>
   )
 }
 

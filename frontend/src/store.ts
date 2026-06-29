@@ -354,6 +354,9 @@ interface BuilderState {
   select: (id: string | null) => void
 
   commit: (next: AppDefinition) => void
+  /** Apply a definition received from a remote collaborator: replaces `def`
+   *  WITHOUT touching undo history or the dirty flag (the sender persists). */
+  applyRemote: (def: AppDefinition) => void
   undo: () => void
   redo: () => void
 
@@ -422,6 +425,19 @@ export const useBuilder = create<BuilderState>((set, get) => ({
     if (!def) return
     set((s) => ({ def: next, past: [...s.past, def].slice(-50), future: [], dirty: true }))
   },
+  applyRemote: (next) =>
+    set((s) => ({
+      def: next,
+      // Keep the current page if it still exists, else fall back to the first.
+      currentPageId: next.pages.some((p) => p.id === s.currentPageId)
+        ? s.currentPageId
+        : (next.pages[0]?.id ?? ''),
+      // Drop the selection if the selected element no longer exists remotely.
+      selectedId:
+        s.selectedId && next.pages.some((p) => findEl(p.root, s.selectedId!))
+          ? s.selectedId
+          : null,
+    })),
   undo: () => {
     const { past, def, future } = get()
     if (!past.length || !def) return

@@ -1,12 +1,12 @@
 use axum::{
     middleware,
-    routing::{get, post, put},
+    routing::{get, patch, post, put},
     Router,
 };
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 
 use crate::{
-    handlers::{apps, data, health, page_templates},
+    handlers::{apps, collab_authz, collaborators, data, health, page_templates},
     middleware::require_auth,
     state::AppState,
 };
@@ -19,6 +19,10 @@ pub fn build(state: AppState) -> Router {
         .route("/apps/:id", get(apps::get).put(apps::update).delete(apps::delete))
         .route("/apps/:id/duplicate", post(apps::duplicate))
         .route("/apps/:id/publish", post(apps::publish))
+        // Partage utilisateur-à-utilisateur (collaborateurs temps réel)
+        .route("/recipients", get(collaborators::search_recipients))
+        .route("/apps/:id/collaborators", get(collaborators::list).post(collaborators::add))
+        .route("/apps/:id/collaborators/:user_id", patch(collaborators::update).delete(collaborators::remove))
         // Modèles de pages réutilisables (par utilisateur, inter-projets)
         .route("/page-templates", get(page_templates::list).post(page_templates::create))
         .route("/page-templates/:id", axum::routing::delete(page_templates::delete))
@@ -38,6 +42,8 @@ pub fn build(state: AppState) -> Router {
     // Accès PUBLIC (apps publiées) — sans authentification, garde `is_published`.
     let public = Router::new()
         .route("/health", get(health::health))
+        // Internal: collab room ACL (called by the core; guarded by X-Internal-Secret).
+        .route("/internal/collab/authorize", post(collab_authz::authorize))
         .route("/public/apps/:slug", get(apps::get_public))
         .route("/public/apps/:slug/data/:type", get(data::public_list).post(data::public_create))
         .route("/public/apps/:slug/data/:type/search", post(data::public_search))
