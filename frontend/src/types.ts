@@ -18,6 +18,7 @@ export interface Application {
   is_published: boolean
   tags:         string[]
   is_trashed:   boolean
+  is_starred:   boolean
   created_at:   string
   updated_at:   string
 }

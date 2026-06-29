@@ -53,11 +53,15 @@ export const appApi = {
     const { data } = await api.post('/app/apps', payload)
     return data
   },
-  async update(id: string, payload: Partial<{ name: string; description: string | null; definition: AppDefinition; tags: string[]; is_published: boolean }>): Promise<Application> {
+  async update(id: string, payload: Partial<{ name: string; description: string | null; definition: AppDefinition; tags: string[]; is_published: boolean; is_starred: boolean }>): Promise<Application> {
     const { data } = await api.put(`/app/apps/${id}`, payload)
     return data
   },
   async remove(id: string): Promise<void> {
+    await api.delete(`/app/apps/${id}`)
+  },
+  // Move an app to the trash (soft-delete). Backed by `DELETE /apps/:id`.
+  async trash(id: string): Promise<void> {
     await api.delete(`/app/apps/${id}`)
   },
   async duplicate(id: string): Promise<Application> {

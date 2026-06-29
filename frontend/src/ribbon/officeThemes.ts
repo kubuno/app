@@ -24,4 +24,4 @@ export function fileAccentFor(accent: string): string {
 }
 
 // App (constructeur d'applications) : violet.
-export const THEME_APP = officeTheme('#7048e8')
+export const THEME_APP = officeTheme('#47299f')

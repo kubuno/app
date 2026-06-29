@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { format } from 'date-fns'
@@ -9,7 +10,7 @@ import {
   Layout, Database, Zap, Settings as SettingsIcon, Plus, Globe, Check, ExternalLink, Copy, FileText,
   Container, Heading, Type, MousePointerClick, Image as ImageIcon, Sparkles, Minus,
   Rows3, ChevronsLeftRightEllipsis, LayoutGrid, Map as MapIcon, DollarSign, Repeat,
-  Scissors, ClipboardPaste, Trash2, FilePlus2, Pencil, LayoutTemplate, AppWindow,
+  Scissors, ClipboardPaste, Trash2, FilePlus2, Pencil, LayoutTemplate, AppWindow, Star,
 } from 'lucide-react'
 import { appApi } from './api'
 import { useBuilder, currentPage, findEl, isContainerType, type LeftTab, type Device } from './store'
@@ -26,6 +27,8 @@ import BuilderStatusBar from './builder/BuilderStatusBar'
 import AppRuntime from './runtime/AppRuntime'
 import { OfficeShell } from './shell/OfficeShell'
 import { SaveButton } from './ribbon/SaveButton'
+import { UndoRedoButtons } from './ribbon/UndoRedoButtons'
+import { AppLogo } from './AppLogo'
 import { THEME_APP, fileAccentFor } from './ribbon/officeThemes'
 import { useFileTab, backstageLabels, InfoPanel } from './ribbon/ModuleBackstage'
 import AppStartContent from './AppStartContent'
@@ -37,8 +40,10 @@ export default function AppBuilder() {
   const navigate = useNavigate()
   const { t, i18n } = useTranslation('app')
   const user = useAuthStore((s) => s.user)
+  const queryClient = useQueryClient()
   const [loading, setLoading] = useState(true)
   const [published, setPublished] = useState(false)
+  const [isStarred, setIsStarred] = useState(false)
   const [slug, setSlug] = useState('')
   const [updatedAt, setUpdatedAt] = useState<string | null>(null)
   const [shareOpen, setShareOpen] = useState(false)
@@ -74,6 +79,7 @@ export default function AppBuilder() {
     appApi.get(id).then((app) => {
       load(app.id, app.name, app.definition as AppDefinition)
       setPublished(app.is_published)
+      setIsStarred(app.is_starred)
       setSlug(app.slug)
       setUpdatedAt(app.updated_at ?? null)
       setLoading(false)
@@ -104,6 +110,24 @@ export default function AppBuilder() {
     setSaving(true)
     try { await appApi.update(st.appId, { definition: st.def }); markSaved() } catch { /* ignore */ } finally { setSaving(false) }
   }
+
+  // Toggle the favorite flag (persists `is_starred` and refreshes the app query).
+  const starMut = useMutation({
+    mutationFn: (next: boolean) => appApi.update(appId!, { is_starred: next }),
+    onSuccess: (app) => {
+      setIsStarred(app.is_starred)
+      queryClient.invalidateQueries({ queryKey: ['app', appId] })
+    },
+  })
+
+  // Move the app to the trash, then return to the dashboard.
+  const trashMut = useMutation({
+    mutationFn: () => appApi.trash(appId!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['apps'] })
+      navigate('/app')
+    },
+  })
 
   // Raccourcis : undo/redo + édition (dupliquer/copier/couper/coller/supprimer)
   useEffect(() => {
@@ -357,23 +381,46 @@ export default function AppBuilder() {
       activeTabId={activeTabId}
       onTabChange={onTabChange}
       chromeless
+      topbarHeight={64}
       theme={THEME_APP}
-      onBack={() => navigate('/app')}
+      titleIcon={<AppLogo size={20} className="flex-shrink-0" />}
       title={appName}
-      subtitle="App"
-      titleActions={<SaveButton onSave={save} saving={saving} dirty={dirty} label={t('save', { defaultValue: 'Enregistrer' })} />}
+      titleActions={
+        <>
+          <SaveButton onSave={save} saving={saving} dirty={dirty} label={t('save', { defaultValue: 'Enregistrer' })} />
+          <UndoRedoButtons
+            onUndo={undo} onRedo={redo} canUndo={canUndo} canRedo={canRedo}
+            undoLabel={t('undo', { defaultValue: 'Annuler' }) + ' (Ctrl+Z)'}
+            redoLabel={t('redo', { defaultValue: 'Rétablir' }) + ' (Ctrl+Y)'}
+          />
+          <button
+            onClick={() => starMut.mutate(!isStarred)}
+            className={`p-1.5 rounded hover:bg-white/10 transition-colors flex-shrink-0 ${isStarred ? 'text-warning' : 'text-white/90'}`}
+            title={isStarred ? t('app_unstar', { defaultValue: 'Retirer des favoris' }) : t('app_star', { defaultValue: 'Ajouter aux favoris' })}
+          >
+            <Star size={15} className={isStarred ? 'fill-warning text-warning' : ''} />
+          </button>
+        </>
+      }
+      onDelete={() => trashMut.mutate()}
+      deleteTitle={t('app_move_to_trash', { defaultValue: 'Mettre à la corbeille' })}
+      deleteConfirm={{
+        title: t('app_delete_confirm_title', { defaultValue: 'Supprimer cette application ?' }),
+        message: t('app_delete_confirm_msg', { defaultValue: "L'application sera déplacée dans la corbeille." }),
+        confirmLabel: t('app_delete_confirm_ok', { defaultValue: 'Supprimer' }),
+        variant: 'danger',
+      }}
       statusBar={leftTab === 'design' ? <BuilderStatusBar /> : undefined}
       statusHeight={26}
       saveStatus={<span className="text-[11px] text-text-tertiary">{saving ? 'Enregistrement…' : dirty ? 'Modifié' : 'Enregistré'}</span>}
       topbarActions={
-        <div className="flex items-center gap-1">
-          <button type="button" onClick={undo} title="Annuler (Ctrl+Z)" className="rounded p-1.5 text-text-secondary hover:bg-surface-2"><Undo2 size={15} /></button>
-          <button type="button" onClick={redo} title="Rétablir (Ctrl+Y)" className="rounded p-1.5 text-text-secondary hover:bg-surface-2"><Redo2 size={15} /></button>
-          <div className="mx-1 h-5 w-px bg-border" />
+        <div className="flex items-center gap-2">
           <DevicePicker device={device} setDevice={setDevice} />
-          <Button variant={published ? 'secondary' : 'ghost'} size="sm" icon={published ? <Check size={14} /> : <Globe size={14} />} onClick={onPublishClick}>
-            {published ? 'Publié' : 'Publier'}
-          </Button>
+          {/* Style blanc translucide : lisible sur la topbar colorée (cf. « Partager » du tableur). */}
+          <button type="button" onClick={onPublishClick}
+            className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-white/15 text-white text-sm font-medium border border-white/25 hover:bg-white/25 transition-colors">
+            {published ? <Check size={15} /> : <Globe size={15} />} {published ? 'Publié' : 'Publier'}
+          </button>
           <Button variant="primary" size="sm" icon={<Play size={14} />} onClick={togglePreview}>Aperçu</Button>
         </div>
       }
