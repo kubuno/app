@@ -19,14 +19,38 @@ public mini-sites, then publish them behind a shareable link.
 - **Visual page builder** — a drag-and-drop canvas of nestable elements (sections,
   columns, containers) and a rich widget palette, each configured through an
   inspector. The same render path drives both the editor and the live runtime, so
-  what you build is exactly what ships.
+  what you build is exactly what ships. Direct-manipulation editing throughout:
+  double-click any text element to edit it in place, a floating quick-action bar on
+  the selection (reorder, duplicate, wrap in a container, delete), a clickable
+  breadcrumb of the selected element's ancestors to reach parent containers, and
+  Ctrl/⌘ + mouse-wheel zoom anchored under the cursor.
 - **Widget library (Elementor-style)** — text, heading, button, image, video, map,
   gallery, icon box, tabs, accordion, counter, countdown, price table, call-to-action,
   testimonial, flip box, and more.
-- **Data** — define collections and let app pages read and write records; published
-  apps can expose scoped, anonymous data endpoints (search / list / create / update /
-  delete) for public forms and tools.
-- **Workflows** — wire up logic and automation behind your pages.
+- **Data** — define collections ("Things") with typed, reorderable fields, and let
+  app pages read and write records. The built-in data table offers server-side
+  search and sorting, inline cell editing, multi-row selection and CSV
+  import/export. Published apps can expose scoped, anonymous data endpoints
+  (search / list / create / update / delete) for public forms and tools.
+- **Workflows** — wire up logic and automation behind your pages: each workflow
+  pairs an event trigger (click, input change, page load) with a sequence of
+  actions organised by family — data (create / update / delete / refresh),
+  navigation, interface (messages, state variables, clipboard), documents (PDF)
+  and flow control (wait, confirmation prompt that can cancel the rest of the
+  run). Actions support "only if…" conditions, drag-and-drop reordering,
+  duplication and per-action or per-workflow enable/disable switches.
+- **PDF reports** — a banded, Crystal Reports-style designer rendered as a true
+  WYSIWYG page: labels, data fields, summaries (sum / count / avg / min / max),
+  special fields (page numbers, dates, record counters), lines, boxes, ellipses,
+  checkboxes and images, laid out on draggable bands with snapping smart guides,
+  multi-selection, align/distribute tools, clipboard support and keyboard nudging.
+  Margins and band heights are resized by direct drag, bands can repeat, hide or
+  force page breaks, and a live preview panel re-renders the actual PDF (generated
+  client-side with pdf-lib) against real records as you edit.
+- **Office-style chrome** — the builder shares the Kubuno Office shell: a ribbon
+  whose groups collapse responsively into dropdown chips when space runs out, a
+  "File" backstage for opening and creating apps, and clear error dialogs when a
+  file cannot be opened.
 - **Publish & share** — one click turns an app into a public page reachable at
   `/app/p/<slug>`; the anonymous runtime loads the module bundles through the core
   proxy, with data scoped to `public/apps/<slug>`.
@@ -66,7 +90,19 @@ shared specifiers (`react`, `@kubuno/sdk`, `@ui`, …) are resolved by the host 
 
 This module ships in the **all-in-one [Kubuno](https://github.com/kubuno/core) Docker image** (`ghcr.io/kubuno/kubuno`) — the easiest way to self-host a full Kubuno instance (core + every module). See **[kubuno/docker](https://github.com/kubuno/docker)** for `docker compose` instructions.
 
-To build this module from source (Debian package), see below.
+Native packages are published on the [GitHub Releases](https://github.com/kubuno/app/releases)
+page for every tagged version:
+
+| Platform | Package | Built by |
+|---|---|---|
+| Debian / Ubuntu | `.deb` | `build_deb.sh` |
+| Fedora / RHEL / openSUSE | `.rpm` | `build_rpm.sh` |
+| Windows | NSIS installer (`.exe`) | `build_windows.sh` |
+| macOS | `.pkg` | `build_macos.sh` |
+
+Each script is self-detecting (module id and version are read from `Cargo.toml`) and
+produces the same on-disk layout, so the core discovers the module identically on
+every platform. To build from source, see below.
 
 ## Development
 
