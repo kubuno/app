@@ -12,6 +12,7 @@ import { appApi } from './api'
 import type { Application, AppKind, Page } from './types'
 import { TEMPLATES } from './templates'
 import { TemplateThumb } from './builder/TemplateThumb'
+import { useOpenError } from './ribbon/useOpenError'
 
 // Reusable start content for the App module: recent apps (derived from `.kbapp`
 // files in the `App/` Drive folder) + a "Browse" tab fed by the file browser, plus
@@ -21,6 +22,7 @@ import { TemplateThumb } from './builder/TemplateThumb'
 export default function AppStartContent() {
   const { t, i18n } = useTranslation('app')
   const navigate = useNavigate()
+  const { showOpenError, openErrorDialog } = useOpenError(t)
   const [searchParams, setSearchParams] = useSearchParams()
   const [apps, setApps] = useState<Application[]>([])
   const [showCreate, setShowCreate] = useState(false)
@@ -50,7 +52,7 @@ export default function AppStartContent() {
 
   // Open a .kbapp file from the browser → builder.
   const handleOpenFile = (file: FileItem): boolean => {
-    appApi.openByFile(file.id).then((a) => navigate(`/app/${a.id}`)).catch(() => {})
+    appApi.openByFile(file.id).then((a) => navigate(`/app/${a.id}`)).catch(showOpenError)
     return true
   }
 
@@ -67,6 +69,7 @@ export default function AppStartContent() {
 
   return (
     <>
+      {openErrorDialog}
       <ModuleStartPage
         recentTitle={t('recent')}
         recentItems={recentItems}

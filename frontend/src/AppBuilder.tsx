@@ -195,6 +195,7 @@ export default function AppBuilder() {
     labels: backstageLabels(t),
     startContent: <AppStartContent />,
     defaultTab: 'home',
+    openKey: id,
     doc: {
       info: (
         <InfoPanel
@@ -429,7 +430,7 @@ export default function AppBuilder() {
         confirmLabel: t('app_delete_confirm_ok', { defaultValue: 'Supprimer' }),
         variant: 'danger',
       }}
-      statusBar={leftTab === 'design' ? <BuilderStatusBar /> : undefined}
+      statusBar={leftTab === 'design' || leftTab === 'reports' ? <BuilderStatusBar /> : undefined}
       statusHeight={26}
       saveStatus={<span className="text-[11px] text-text-tertiary">{saving ? 'Enregistrement…' : dirty ? 'Modifié' : 'Enregistré'}</span>}
       topbarActions={

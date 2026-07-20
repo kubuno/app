@@ -459,7 +459,7 @@ function BottomNavW({ el, interactive, onNav }: { el: Element; interactive: bool
         <button key={i} type="button" onClick={(e) => { if (interactive && onNav && it[2]) { e.stopPropagation(); onNav(it[2]) } }}
           style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '8px 0', background: 'none', border: 'none', cursor: interactive && it[2] ? 'pointer' : 'default', color: i === active ? accent : '#94a3b8' }}>
           <Ico name={it[0] || 'Circle'} size={22} color={i === active ? accent : '#94a3b8'} />
-          <span style={{ fontSize: 11, fontWeight: i === active ? 700 : 500 }}>{it[1]}</span>
+          <span style={{ fontSize: 11, fontWeight: i === active ? 700 : 600 }}>{it[1]}</span>
         </button>
       ))}
     </div>
@@ -615,7 +615,7 @@ export function renderWidget(el: Element, interactive: boolean, onNav?: (target:
     case 'alert': {
       const tone = ALERT_TONES[s(el.props.variant, 'info')] ?? ALERT_TONES.info
       return (
-        <div style={{ background: tone.bg, borderLeft: `4px solid ${tone.border}`, color: tone.fg, padding: '12px 14px', borderRadius: 8, ...css }}>
+        <div style={{ background: tone.bg, color: tone.fg, padding: '12px 14px', borderRadius: 8, ...css }}>
           {s(el.props.title) && <div style={{ fontWeight: 700, marginBottom: 2 }}>{s(el.props.title)}</div>}
           <div style={{ fontSize: 14 }}>{s(el.props.text, 'Message d’information.')}</div>
         </div>
@@ -624,7 +624,7 @@ export function renderWidget(el: Element, interactive: boolean, onNav?: (target:
 
     case 'blockquote':
       return (
-        <blockquote style={{ borderLeft: '4px solid #2563eb', margin: 0, padding: '6px 0 6px 16px', ...css }}>
+        <blockquote style={{ background: '#eff6ff', margin: 0, padding: '12px 16px', borderRadius: 8, ...css }}>
           <p style={{ fontSize: 19, fontStyle: 'italic', color: '#1e293b', margin: 0 }}>“{s(el.props.text, 'Une citation inspirante.')}”</p>
           {s(el.props.author) && <footer style={{ marginTop: 6, color: '#64748b', fontSize: 13 }}>— {s(el.props.author)}</footer>}
         </blockquote>
@@ -779,7 +779,7 @@ export function renderWidget(el: Element, interactive: boolean, onNav?: (target:
             <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600 }}>{s(el.props.label, 'Indicateur')}</span>
           </div>
           <div style={{ fontSize: 32, fontWeight: 800, color: '#0f172a', lineHeight: 1.1 }}>{s(el.props.value, '0')}</div>
-          {s(el.props.delta) && <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 6, color: tc, fontSize: 13, fontWeight: 700 }}>{Tr && <Tr size={15} />}{s(el.props.delta)}{s(el.props.deltaLabel) && <span style={{ color: '#94a3b8', fontWeight: 500 }}> {s(el.props.deltaLabel)}</span>}</div>}
+          {s(el.props.delta) && <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 6, color: tc, fontSize: 13, fontWeight: 700 }}>{Tr && <Tr size={15} />}{s(el.props.delta)}{s(el.props.deltaLabel) && <span style={{ color: '#94a3b8', fontWeight: 600 }}> {s(el.props.deltaLabel)}</span>}</div>}
         </div>
       )
     }

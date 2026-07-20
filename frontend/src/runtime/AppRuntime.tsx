@@ -7,6 +7,8 @@ import { elementCss, asCss } from '../elements/style'
 import { renderWidget } from '../elements/widgets'
 import { runActions, type ActionEnv } from './actions'
 import { RunTileList, RunChatThread, RunMessageInput } from './ChatRuntime'
+import { useConfirm } from '@kubuno/sdk'
+import { ConfirmDialog } from '@ui'
 
 interface Toast { id: number; msg: string }
 
@@ -66,17 +68,25 @@ export default function AppRuntime({
   const refresh = useCallback(() => setVersion((v) => v + 1), [])
   const setStateVar = useCallback((k: string, v: unknown) => setPstate((s) => ({ ...s, [k]: v })), [])
 
+  // « Demander confirmation » (action workflow) : dialog du core, jamais window.confirm.
+  const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm()
+  const confirmAction = useCallback(
+    (message: string) => confirm({ title: 'Confirmation', message, confirmLabel: 'Continuer' }),
+    [confirm],
+  )
+
   const reports = def.reports ?? []
   const makeEnv = useCallback((cell?: Record<string, unknown>): ActionEnv => ({
     appId,
     ctx: { ...ctxBase, cell },
     reports,
     setState: setStateVar, navigate, goBack, resetInputs, refresh, alert,
-  }), [appId, ctxBase, reports, setStateVar, navigate, goBack, resetInputs, refresh, alert])
+    confirm: confirmAction,
+  }), [appId, ctxBase, reports, setStateVar, navigate, goBack, resetInputs, refresh, alert, confirmAction])
 
   // Workflows « au chargement de page ».
   useEffect(() => {
-    const wfs = def.workflows.filter((w) => w.event.type === 'pageLoad' && w.event.pageId === pageId)
+    const wfs = def.workflows.filter((w) => !w.disabled && w.event.type === 'pageLoad' && w.event.pageId === pageId)
     if (wfs.length) wfs.forEach((w) => runActions(w.actions, makeEnv()))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageId])
@@ -95,6 +105,7 @@ export default function AppRuntime({
         makeEnv={makeEnv}
         navigate={navigate}
       />
+      {confirmState && <ConfirmDialog {...confirmState} onConfirm={handleConfirm} onCancel={handleCancel} />}
       <div className="pointer-events-none fixed bottom-4 right-4 z-50 space-y-2">
         {toasts.map((t) => (
           <div key={t.id} className="pointer-events-auto rounded-lg bg-slate-900 px-4 py-2 text-sm text-white shadow-lg">{t.msg}</div>
@@ -123,7 +134,7 @@ function RunNode(props: NodeProps) {
 
   const css = asCss(el.style)
   const workflowsFor = (type: 'click' | 'inputChange') =>
-    def.workflows.filter((w) => w.event.type === type && w.event.elementId === el.id)
+    def.workflows.filter((w) => !w.disabled && w.event.type === type && w.event.elementId === el.id)
 
   const childrenNodes = (el.children ?? []).map((c) => <RunNode key={c.id} {...props} el={c} />)
 

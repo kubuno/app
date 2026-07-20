@@ -14,13 +14,15 @@ export default function BuilderStatusBar() {
   const zoom = useBuilder((s) => s.canvasZoom)
   const setZoom = useBuilder((s) => s.setCanvasZoom)
   const page = useBuilder(currentPage)
+  const leftTab = useBuilder((s) => s.leftTab)
   const pct = Math.round(zoom * 100)
   const count = page ? Math.max(0, countEls(page.root) - 1) : 0
 
   const btn = 'flex items-center justify-center px-1.5 rounded hover:bg-black/5'
   return (
     <div className="flex w-full items-center gap-0.5">
-      <span className="px-2 tabular-nums">{count} élément{count > 1 ? 's' : ''}</span>
+      {/* Element count only makes sense on the Design tab (counts page elements). */}
+      {leftTab === 'design' && <span className="px-2 tabular-nums">{count} élément{count > 1 ? 's' : ''}</span>}
       <div className="flex-1" />
       <button type="button" onClick={() => setZoom(zoom - 0.1)} title="Zoom arrière" className={btn}><Minus size={13} /></button>
       <RangeSlider

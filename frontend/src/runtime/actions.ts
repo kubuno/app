@@ -16,6 +16,8 @@ export interface ActionEnv {
   resetInputs: () => void
   refresh:     () => void
   alert:       (message: string) => void
+  /** Confirmation dialog (core ConfirmDialog); resolves false when cancelled. */
+  confirm?:    (message: string) => Promise<boolean>
 }
 
 /** Évalue une condition « Seulement si… » : truthy → action exécutée. */
@@ -47,13 +49,15 @@ async function resolveFields(fields: Record<string, unknown> | undefined, ctx: R
 
 export async function runActions(actions: Action[], env: ActionEnv): Promise<void> {
   for (const a of actions) {
+    if (a.disabled) continue
     try {
       // Exécution conditionnelle (« Seulement si… ») : on saute si la condition est fausse.
       if (a.condition !== undefined) {
         const cond = await resolveDyn(a.condition, env.ctx)
         if (!isTruthy(cond)) continue
       }
-      await runAction(a, env)
+      const keepGoing = await runAction(a, env)
+      if (keepGoing === false) return  // « confirm » annulé → stoppe le workflow
     } catch (e) {
       env.alert(`Erreur dans l'action « ${a.type} »`)
       console.error('[app runtime] action failed', a, e)
@@ -61,9 +65,21 @@ export async function runActions(actions: Action[], env: ActionEnv): Promise<voi
   }
 }
 
-async function runAction(a: Action, env: ActionEnv): Promise<void> {
+async function runAction(a: Action, env: ActionEnv): Promise<void | false> {
   const { ctx } = env
   switch (a.type) {
+    case 'wait':
+      await new Promise((r) => setTimeout(r, Math.min(10000, Math.max(0, a.ms || 0))))
+      break
+    case 'confirm': {
+      const message = await resolveText(a.message, ctx)
+      const ok = env.confirm ? await env.confirm(message) : true
+      if (!ok) return false
+      break
+    }
+    case 'refreshData':
+      env.refresh()
+      break
     case 'createRecord': {
       const fields = await resolveFields(a.fields, ctx)
       await createRecordCtx(ctx, a.dataType, fields)

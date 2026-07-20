@@ -8,6 +8,7 @@ import { useModulePrefs } from './userPrefs'
 // ── Per-user preferences (backend, cross-device via core users.preferences) ─────
 
 interface AppPrefs {
+  [key: string]: unknown // satisfies useModulePrefs<T extends Record<string, unknown>>
   defaultDevice:  string   // 'desktop' | 'tablet' | 'mobile' — editor canvas frame
   defaultZoom:    string   // '0.75' | '1' | '1.25' — default canvas zoom
   showGrid:       boolean  // alignment grid background on the canvas

@@ -1,5 +1,5 @@
 // Fabrique et helpers de rapports « façon Crystal Reports ».
-import type { Report, ReportBand, ReportBandType, ReportObject, ValueFormat } from './types'
+import type { Report, ReportBand, ReportBandType, ReportObject, SummaryFn, ValueFormat } from './types'
 import { uid } from './store'
 
 export const PAGE_DIM: Record<string, { w: number; h: number }> = {
@@ -14,6 +14,43 @@ export function usableWidth(r: Pick<Report, 'orientation' | 'pageSize' | 'margin
   return w - r.margins.left - r.margins.right
 }
 
+/** Usable height (points) for the given orientation / size / margins. */
+export function usableHeight(r: Pick<Report, 'orientation' | 'pageSize' | 'margins'>): number {
+  const dim = PAGE_DIM[r.pageSize] ?? PAGE_DIM.A4
+  const h = r.orientation === 'landscape' ? dim.w : dim.h
+  return h - r.margins.top - r.margins.bottom
+}
+
+export function asNumber(v: unknown): number {
+  if (typeof v === 'number') return v
+  const n = parseFloat(String(v ?? '').replace(/[^\d.,-]/g, '').replace(',', '.'))
+  return Number.isFinite(n) ? n : 0
+}
+
+/** Format a raw record value for display/print. */
+export function fmtValue(value: unknown, format?: string): string {
+  if (value == null) return ''
+  switch (format) {
+    case 'number':   return asNumber(value).toLocaleString('fr-FR')
+    case 'currency': return asNumber(value).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
+    case 'date':     { const d = new Date(String(value)); return isNaN(+d) ? String(value) : d.toLocaleDateString('fr-FR') }
+    case 'datetime': { const d = new Date(String(value)); return isNaN(+d) ? String(value) : d.toLocaleString('fr-FR') }
+    default:         return typeof value === 'boolean' ? (value ? 'Oui' : 'Non') : String(value)
+  }
+}
+
+/** Aggregate a field over a set of records. */
+export function summarize(fn: SummaryFn, field: string, records: Record<string, unknown>[]): number {
+  if (fn === 'count') return records.length
+  const nums = records.map((r) => asNumber(r[field]))
+  if (!nums.length) return 0
+  if (fn === 'sum') return nums.reduce((a, b) => a + b, 0)
+  if (fn === 'avg') return nums.reduce((a, b) => a + b, 0) / nums.length
+  if (fn === 'min') return Math.min(...nums)
+  if (fn === 'max') return Math.max(...nums)
+  return 0
+}
+
 /** Étiquettes lisibles des bandes (panneau + barres de section du concepteur). */
 export const BAND_LABELS: Record<ReportBandType, string> = {
   reportHeader: 'En-tête de rapport',
@@ -25,16 +62,19 @@ export const BAND_LABELS: Record<ReportBandType, string> = {
   reportFooter: 'Pied de rapport',
 }
 
-/** Ordre d'affichage des bandes dans le concepteur (groupes intercalés). */
+/** Ordre d'affichage des bandes dans le concepteur (groupes intercalés).
+ *  GÉNÉRALISÉ : chaque type peut exister en plusieurs exemplaires ; au sein
+ *  d'un même type, l'ordre du tableau `bands` fait foi (réordonnable par
+ *  glisser-déposer dans le concepteur). */
 export function orderedBands(report: Report): ReportBand[] {
-  const find = (t: ReportBandType, gi?: number) =>
-    report.bands.find((b) => b.type === t && (gi === undefined ? b.groupIndex == null : b.groupIndex === gi))
-  const out: (ReportBand | undefined)[] = [find('reportHeader'), find('pageHeader')]
-  report.groups.forEach((_, gi) => out.push(find('groupHeader', gi)))
-  out.push(find('detail'))
-  for (let gi = report.groups.length - 1; gi >= 0; gi--) out.push(find('groupFooter', gi))
-  out.push(find('pageFooter'), find('reportFooter'))
-  return out.filter(Boolean) as ReportBand[]
+  const ofType = (t: ReportBandType) => report.bands.filter((b) => b.type === t && b.groupIndex == null)
+  const ofGroup = (t: ReportBandType, gi: number) => report.bands.filter((b) => b.type === t && b.groupIndex === gi)
+  const out: ReportBand[] = [...ofType('reportHeader'), ...ofType('pageHeader')]
+  report.groups.forEach((_, gi) => out.push(...ofGroup('groupHeader', gi)))
+  out.push(...ofType('detail'))
+  for (let gi = report.groups.length - 1; gi >= 0; gi--) out.push(...ofGroup('groupFooter', gi))
+  out.push(...ofType('pageFooter'), ...ofType('reportFooter'))
+  return out
 }
 
 function obj(o: Partial<ReportObject> & Pick<ReportObject, 'kind' | 'x' | 'y' | 'width' | 'height'>): ReportObject {

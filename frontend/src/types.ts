@@ -233,17 +233,22 @@ export type ActionBody =
   | { type: 'copyToClipboard'; text: Dyn }
   | { type: 'goBack' }
   | { type: 'generatePdf';     reportId: string }
+  // ── Logique / contrôle de flux ──
+  | { type: 'wait';        ms: number }
+  | { type: 'confirm';     message: Dyn }   // annulé → stoppe le workflow
+  | { type: 'refreshData' }
 
-/** Action = corps + id + condition optionnelle (« Seulement si… »). */
-export type Action = ActionBody & { id: string; condition?: Dyn }
+/** Action = corps + id + condition optionnelle (« Seulement si… ») + pause. */
+export type Action = ActionBody & { id: string; condition?: Dyn; disabled?: boolean }
 
 export type ActionType = ActionBody['type']
 
 export interface Workflow {
-  id:      string
-  name:    string
-  event:   EventTrigger
-  actions: Action[]
+  id:       string
+  name:     string
+  event:    EventTrigger
+  actions:  Action[]
+  disabled?: boolean   // workflow désactivé (ignoré au runtime)
 }
 
 // ── Rapports PDF (modèle en BANDES, façon Crystal Reports) ───────────────────
@@ -256,7 +261,7 @@ export type ReportBandType =
   | 'reportHeader' | 'pageHeader' | 'groupHeader'
   | 'detail' | 'groupFooter' | 'pageFooter' | 'reportFooter'
 
-export type ReportObjKind = 'label' | 'field' | 'summary' | 'special' | 'line' | 'box'
+export type ReportObjKind = 'label' | 'field' | 'summary' | 'special' | 'line' | 'box' | 'image' | 'ellipse' | 'checkbox'
 export type SummaryFn = 'sum' | 'count' | 'avg' | 'min' | 'max'
 export type SpecialField = 'pageNumber' | 'totalPages' | 'printDate' | 'recordNumber' | 'groupName'
 export type ValueFormat = 'text' | 'number' | 'currency' | 'date' | 'datetime'
@@ -269,25 +274,32 @@ export interface ReportObject {
   width:   number
   height:  number
   text?:    string         // label
-  field?:   string         // field (kind='field') ou champ source d'un summary
+  field?:   string         // field (kind='field'/'checkbox') ou champ source d'un summary
   summary?: SummaryFn      // kind='summary'
   special?: SpecialField   // kind='special'
+  src?:     string         // kind='image' : URL (https, /files/… ou data URI PNG/JPG)
+  fit?:     'contain' | 'stretch'  // kind='image'
+  multiline?: boolean      // kind='label' : retour à la ligne automatique
   // style
   fontSize?: number
   bold?:     boolean
   italic?:   boolean
   align?:    'left' | 'center' | 'right'
   color?:    string
+  bg?:       string   // background fill (empty = transparent)
   format?:   ValueFormat
 }
 
 export interface ReportBand {
   id:         string
   type:       ReportBandType
+  name?:      string        // nom personnalisé (sinon libellé du type)
   groupIndex?: number       // pour groupHeader / groupFooter
   height:     number        // points
   objects:    ReportObject[]
   fill?:      string        // fond de bande (optionnel)
+  hidden?:    boolean       // bande masquée (non imprimée)
+  breakBefore?: boolean     // saut de page avant la bande (groupHeader/detail/reportFooter)
 }
 
 export interface ReportGroup {
