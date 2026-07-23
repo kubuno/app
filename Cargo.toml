@@ -11,7 +11,7 @@ name = "kubuno-app"
 path = "src/main.rs"
 
 [dependencies]
-kubuno-drive = { git = "https://github.com/kubuno/drive", tag = "drive-v0.1.0", package = "kubuno-drive", default-features = false }
+kubuno-drive = { git = "https://github.com/kubuno/drive", tag = "drive-v0.1.4", package = "kubuno-drive", default-features = false }
 # Workspace shared
 tokio              = { workspace = true }
 axum               = { workspace = true }
@@ -88,8 +88,8 @@ validator = { version = "0.18", features = ["derive"] }
 # Logging & Tracing
 tracing            = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
-kubuno-storage     = { git = "https://github.com/kubuno/core", tag = "storage-v0.1.0", package = "kubuno-storage" }
-kubuno-seccomp     = { git = "https://github.com/kubuno/core", tag = "seccomp-v0.1.0", package = "kubuno-seccomp" }
+kubuno-storage     = { git = "https://github.com/kubuno/core", tag = "storage-v0.1.1", package = "kubuno-storage" }
+kubuno-seccomp     = { git = "https://github.com/kubuno/core", tag = "seccomp-v0.1.1", package = "kubuno-seccomp" }
 
 # Erreurs
 thiserror = "1"
