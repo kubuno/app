@@ -2,12 +2,14 @@ import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { AppWindow, ArrowLeft, ExternalLink, Check } from 'lucide-react'
-import { Toggle, Button, Radio } from '@ui'
+import { Toggle, Button, Radio, useSaveShortcut} from '@ui'
 import { useModulePrefs } from './userPrefs'
 
 // ── Per-user preferences (backend, cross-device via core users.preferences) ─────
 
-interface AppPrefs {
+// `type`, not `interface`: only a type alias gets the implicit index signature
+// that `useModulePrefs<T extends Record<string, unknown>>` requires.
+type AppPrefs = {
   [key: string]: unknown // satisfies useModulePrefs<T extends Record<string, unknown>>
   defaultDevice:  string   // 'desktop' | 'tablet' | 'mobile' — editor canvas frame
   defaultZoom:    string   // '0.75' | '1' | '1.25' — default canvas zoom
@@ -61,6 +63,9 @@ function PreferencesTab() {
 
   const set = <K extends keyof AppPrefs>(key: K, value: AppPrefs[K]) =>
     setPrefs(p => ({ ...p, [key]: value }))
+
+  // Ctrl+S saves immediately (disabled while a save is in flight).
+  useSaveShortcut(() => { void save() }, !busy)
 
   const save = async () => {
     setBusy(true)

@@ -169,7 +169,7 @@ export default function WorkflowEditor() {
                 <div className="flex items-center gap-1.5">
                   <Zap size={13} className={w.disabled ? 'text-slate-400' : 'text-amber-500'} />
                   <span className={`flex-1 truncate text-sm ${active ? 'font-medium text-blue-800' : 'text-slate-700'}`}>{w.name}</span>
-                  {w.disabled && <span className="rounded bg-slate-200 px-1 text-[9px] font-semibold uppercase text-slate-500">off</span>}
+                  {w.disabled && <span className="rounded bg-slate-200 px-1 text-[10px] font-semibold uppercase text-slate-500">off</span>}
                 </div>
                 <div className="mt-0.5 flex items-center gap-1 pl-[19px] text-[11px] text-slate-400">
                   <tm.Icon size={11} /> <span className="truncate">{tm.text}</span>
@@ -308,10 +308,10 @@ function WorkflowDetail({ wf, els, inputs, dataTypes, reports, pages, onChange, 
                 <GripVertical size={13} className="shrink-0 cursor-grab text-slate-300" />
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold" style={{ background: fam.bg, color: fam.fg }}>{i + 1}</span>
                 <meta.Icon size={14} className="shrink-0" style={{ color: fam.fg }} />
-                <span className="shrink-0 text-[13px] font-medium text-slate-700">{meta.label}</span>
+                <span className="shrink-0 text-xs font-medium text-slate-700">{meta.label}</span>
                 {summary && <span className="min-w-0 flex-1 truncate text-xs text-slate-400" title={summary}>{summary}</span>}
                 {!summary && <span className="flex-1" />}
-                {a.condition !== undefined && <span title="Exécution conditionnelle" className="flex shrink-0 items-center gap-0.5 rounded bg-violet-100 px-1 py-0.5 text-[9px] font-semibold uppercase text-violet-600"><Filter size={9} /> si</span>}
+                {a.condition !== undefined && <span title="Exécution conditionnelle" className="flex shrink-0 items-center gap-0.5 rounded bg-violet-100 px-1 py-0.5 text-[10px] font-semibold uppercase text-violet-600"><Filter size={9} /> si</span>}
                 <Switch on={!a.disabled} onChange={(v) => setAction(a.id, { ...a, disabled: !v || undefined })} title={a.disabled ? 'Action désactivée' : 'Action active'} />
                 <button type="button" title="Dupliquer" onClick={(e) => { e.stopPropagation(); duplicateAction(a.id) }} className="rounded p-1 text-slate-400 hover:bg-slate-100"><Copy size={13} /></button>
                 <button type="button" title="Supprimer" onClick={(e) => { e.stopPropagation(); removeAction(a.id) }} className="rounded p-1 text-red-400 hover:bg-red-50"><Trash2 size={13} /></button>
@@ -341,7 +341,7 @@ function WorkflowDetail({ wf, els, inputs, dataTypes, reports, pages, onChange, 
       <div>
         <button type="button"
           onClick={(e) => setAddMenu({ pos: { top: e.clientY, left: e.clientX, minWidth: 250 }, at: wf.actions.length })}
-          className="flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-[13px] font-medium text-slate-600 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700">
+          className="flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700">
           <Plus size={13} /> Ajouter une action
         </button>
       </div>

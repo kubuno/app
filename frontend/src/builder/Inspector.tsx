@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
-import { Input, Textarea, Dropdown, Checkbox, ColorField } from '@ui'
+import { Button, Input, Textarea, Dropdown, Checkbox, ColorField } from '@ui'
+import { openImagePicker } from '@kubuno/sdk'
 import type { ConstraintOp, Dyn, Element, ElementStyle } from '../types'
 import { useBuilder, currentPage, findEl, isContainerType } from '../store'
 import DynEditor, { type DynInputs } from './DynEditor'
@@ -163,7 +164,19 @@ export default function Inspector() {
         )}
         {el.type === 'image' && (
           <>
-            <Row label="Source (URL)"><DynEditor value={el.props.src} onChange={(v) => setProp('src', v)} inputs={inputs} dataTypes={dataTypes} /></Row>
+            <Row label="Source (URL)">
+              <div className="flex items-center gap-1.5">
+                <div className="flex-1 min-w-0">
+                  <DynEditor value={el.props.src} onChange={(v) => setProp('src', v)} inputs={inputs} dataTypes={dataTypes} />
+                </div>
+                {/* The field stays: it also accepts bindings. The button just fills it. */}
+                <Button variant="secondary" size="sm" title="Choisir une image"
+                  onClick={() => { void openImagePicker({ title: 'Source de l’image', exclude: ['upload', 'webcam'] })
+                    .then((r) => { if (r?.kind === 'url') setProp('src', { t: 'static', v: r.url }) }) }}>
+                  Parcourir
+                </Button>
+              </div>
+            </Row>
             <Row label="Texte alternatif"><Text value={(el.props.alt as string) || ''} onChange={(v) => setProp('alt', v)} /></Row>
           </>
         )}

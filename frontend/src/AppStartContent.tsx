@@ -137,7 +137,7 @@ export default function AppStartContent() {
                         <div className="flex items-start gap-2 px-3 py-2.5">
                           {Ico && <Ico size={16} className="mt-0.5 shrink-0 text-blue-600" />}
                           <div className="min-w-0">
-                            <div className="truncate text-[13px] font-semibold text-slate-800">{tpl.name}</div>
+                            <div className="truncate text-xs font-semibold text-slate-800">{tpl.name}</div>
                             <div className="text-[11px] leading-tight text-slate-500">{tpl.description}</div>
                           </div>
                         </div>

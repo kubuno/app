@@ -7,7 +7,7 @@ import {
   Bold, Italic, AlignLeft, AlignCenter, AlignRight, X, RefreshCw, Eye,
   Image as ImageIcon, Circle, SquareCheck, Pilcrow, EyeOff, Eraser, Rows3, ArrowDownToLine,
 } from 'lucide-react'
-import { prompt } from '@kubuno/sdk'
+import { prompt, openImagePicker } from '@kubuno/sdk'
 import { Button, Input, Textarea, Dropdown, Checkbox, MenuDropdown, type MenuItem, type MenuDropdownPos } from '@ui'
 import type { Report, ReportBand, ReportObject, SummaryFn, SpecialField, ValueFormat } from '../types'
 import { useBuilder, uid } from '../store'
@@ -663,7 +663,7 @@ function ReportEditor({ report, onChange, onRemove }: { report: Report; onChange
             {fields.map((f) => (
               <button key={f.id} type="button" onClick={() => addField(f.name)}
                 draggable onDragStart={(e) => { e.dataTransfer.setData(DRAG_MIME, JSON.stringify({ kind: 'field', field: f.name })); e.dataTransfer.effectAllowed = 'copy' }}
-                className="flex w-full cursor-grab items-center gap-1.5 rounded border border-slate-200 bg-white px-2 py-1 text-left text-[13px] text-slate-700 hover:border-blue-400 hover:bg-blue-50 active:cursor-grabbing">
+                className="flex w-full cursor-grab items-center gap-1.5 rounded border border-slate-200 bg-white px-2 py-1 text-left text-xs text-slate-700 hover:border-blue-400 hover:bg-blue-50 active:cursor-grabbing">
                 <GripVertical size={11} className="shrink-0 text-slate-300" /><span className="truncate">{f.name}</span><span className="ml-auto text-[10px] text-slate-400">{f.type}</span>
               </button>
             ))}
@@ -806,7 +806,7 @@ function ReportEditor({ report, onChange, onRemove }: { report: Report; onChange
                 onDuplicate={() => { const b = report.bands.find((x) => x.id === bandSel)!; if (b.type === 'detail') duplicateBand(b) }}
                 onRemove={() => removeBand(bandSel)} />
             ) : (
-              <div className="pt-6 text-center text-[12px] text-slate-400">Sélectionnez un objet (ou plusieurs au lasso / Maj-clic), ou cliquez une bande dans le rail de gauche pour régler la bande.</div>
+              <div className="pt-6 text-center text-xs text-slate-400">Sélectionnez un objet (ou plusieurs au lasso / Maj-clic), ou cliquez une bande dans le rail de gauche pour régler la bande.</div>
             )}
           </div>
         )}
@@ -931,7 +931,7 @@ function Ruler({ pw, mLeft, mRight, zoom, onMarginDown }: {
               <div key={p} className="absolute bottom-0 bg-slate-400/70" style={{ left: p * zoom, width: 1, height: p % 100 === 0 ? 10 : p % 50 === 0 ? 7 : 4 }} />
             ))}
             {marks.filter((p) => p % 100 === 0).map((p) => (
-              <span key={`l${p}`} className="absolute top-0.5 text-[8px] leading-none text-slate-400" style={{ left: p * zoom + 2 }}>{p}</span>
+              <span key={`l${p}`} className="absolute top-0.5 text-[10px] leading-none text-slate-400" style={{ left: p * zoom + 2 }}>{p}</span>
             ))}
           </div>
         </div>
@@ -961,7 +961,7 @@ function VRuler({ ph, mTop, mBottom, zoom, onMarginDown }: {
             <div key={p} className="absolute right-0 bg-slate-400/70" style={{ top: p * zoom, height: 1, width: p % 100 === 0 ? 10 : p % 50 === 0 ? 7 : 4 }} />
           ))}
           {marks.filter((p) => p % 100 === 0 && p > 0).map((p) => (
-            <span key={`l${p}`} className="absolute left-0.5 text-[7px] leading-none text-slate-400" style={{ top: p * zoom + 2 }}>{p}</span>
+            <span key={`l${p}`} className="absolute left-0.5 text-[10px] leading-none text-slate-400" style={{ top: p * zoom + 2 }}>{p}</span>
           ))}
         </div>
         {/* Frontières de marges glissables */}
@@ -1064,7 +1064,7 @@ function BandRail({ sections, zoom, groups, hoverBand, selectedBand, onSelect, o
             {b.hidden && cellH >= 14 ? (
               <EyeOff size={Math.min(12, cellH - 4)} className="text-slate-400" />
             ) : text ? (
-              <span className={`rotate-180 whitespace-nowrap text-[9px] font-semibold uppercase tracking-wide ${selected || hovered ? 'text-blue-600' : 'text-slate-400'}`}
+              <span className={`rotate-180 whitespace-nowrap text-[10px] font-semibold uppercase tracking-wide ${selected || hovered ? 'text-blue-600' : 'text-slate-400'}`}
                 style={{ writingMode: 'vertical-rl' }}>{text}</span>
             ) : null}
             {/* Poignée de hauteur de bande (comme les lignes d'un tableur) */}
@@ -1269,7 +1269,7 @@ function BandInspector({ band, canRemove, canBreak, typeLocked, onChange, onChan
       {!isGroup && (
         <InspRow label="Type">
           {typeLocked
-            ? <div className="rounded border border-slate-200 bg-slate-50 px-2 py-1.5 text-[12px] text-slate-400">{BAND_LABELS.detail} — dernière section Détail (type verrouillé)</div>
+            ? <div className="rounded border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm text-slate-400">{BAND_LABELS.detail} — dernière section Détail (type verrouillé)</div>
             : <Dropdown value={band.type} width="100%" onChange={(v) => onChangeType(v as ReportBand['type'])} options={FREE_TYPES} />}
         </InspRow>
       )}
@@ -1288,12 +1288,12 @@ function BandInspector({ band, canRemove, canBreak, typeLocked, onChange, onChan
       </div>
       <div className="mt-3 space-y-1.5 border-t border-slate-100 pt-2">
         {band.type === 'detail' && (
-          <button type="button" onClick={onDuplicate} className="flex w-full items-center gap-1.5 rounded border border-slate-200 px-2 py-1.5 text-[12px] text-slate-600 hover:border-blue-400 hover:bg-blue-50">
+          <button type="button" onClick={onDuplicate} className="flex w-full items-center gap-1.5 rounded border border-slate-200 px-2 py-1.5 text-xs text-slate-600 hover:border-blue-400 hover:bg-blue-50">
             <Copy size={13} /> Dupliquer la section Détail
           </button>
         )}
         <button type="button" onClick={onClear} disabled={!band.objects.length}
-          className="flex w-full items-center gap-1.5 rounded border border-slate-200 px-2 py-1.5 text-[12px] text-slate-600 hover:border-red-300 hover:bg-red-50 disabled:opacity-40">
+          className="flex w-full items-center gap-1.5 rounded border border-slate-200 px-2 py-1.5 text-xs text-slate-600 hover:border-red-300 hover:bg-red-50 disabled:opacity-40">
           <Eraser size={13} /> Vider la bande ({band.objects.length} objet{band.objects.length > 1 ? 's' : ''})
         </button>
       </div>
@@ -1357,7 +1357,16 @@ function ObjectInspector({ obj, fields, onChange, onRemove }: {
       )}
       {obj.kind === 'image' && (
         <>
-          <InspRow label="URL de l’image (PNG/JPG)"><Input value={obj.src ?? ''} placeholder="https://… ou /files/…" onChange={(e) => onChange({ src: e.target.value })} /></InspRow>
+          <InspRow label="URL de l’image (PNG/JPG)">
+            <div className="flex items-center gap-1.5">
+              <Input value={obj.src ?? ''} placeholder="https://… ou /files/…" onChange={(e) => onChange({ src: e.target.value })} />
+              <Button variant="secondary" size="sm" title="Choisir une image"
+                onClick={() => { void openImagePicker({ title: 'Image du rapport', exclude: ['upload', 'webcam'] })
+                  .then((r) => { if (r?.kind === 'url') onChange({ src: r.url }) }) }}>
+                Parcourir
+              </Button>
+            </div>
+          </InspRow>
           <InspRow label="Ajustement"><Dropdown value={obj.fit ?? 'contain'} width="100%" onChange={(v) => onChange({ fit: v as 'contain' | 'stretch' })}
             options={[{ value: 'contain', label: 'Contenir (proportions)' }, { value: 'stretch', label: 'Étirer' }]} /></InspRow>
         </>

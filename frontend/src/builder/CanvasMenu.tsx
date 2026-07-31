@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, type ReactNode } from 'react'
 import { MenuDropdown, type MenuItem, type MenuDropdownPos } from '@ui'
-import { prompt } from '@kubuno/sdk'
+import { prompt, openImagePicker } from '@kubuno/sdk'
 import {
   Copy, ClipboardCopy, Scissors, ClipboardPaste, ArrowUp, ArrowDown,
   BringToFront, SendToBack, Group, Trash2, Plus, Layout, Zap, Image as ImageIcon,
@@ -164,7 +164,8 @@ function typeSpecific(el: Element): MenuItem[] {
     case 'imageBox':
       out.push({
         type: 'action', label: 'Remplacer l’image…', icon: <ImageIcon size={15} />,
-        onClick: () => { prompt({ title: 'URL de l’image', placeholder: 'https://…', confirmLabel: 'Valider' }).then((url) => { if (url) setProp(el, el.type === 'image' ? 'src' : 'src', el.type === 'image' ? { t: 'static', v: url } : url) }) },
+        onClick: () => { openImagePicker({ title: 'Remplacer l’image', exclude: ['upload', 'webcam'] })
+          .then((r) => { if (r?.kind === 'url') setProp(el, 'src', el.type === 'image' ? { t: 'static', v: r.url } : r.url) }) },
       })
       break
     case 'tabs':
@@ -186,7 +187,8 @@ function typeSpecific(el: Element): MenuItem[] {
       out.push({ type: 'action', label: 'Ajouter une fonction', icon: <Plus size={15} />, onClick: () => appendProp(el, 'features', 'Nouvelle fonction') })
       break
     case 'gallery':
-      out.push({ type: 'action', label: 'Ajouter une image…', icon: <ImageIcon size={15} />, onClick: () => { prompt({ title: 'URL de l’image', placeholder: 'https://…', confirmLabel: 'Ajouter' }).then((url) => { if (url) appendProp(el, 'images', url) }) } })
+      out.push({ type: 'action', label: 'Ajouter une image…', icon: <ImageIcon size={15} />, onClick: () => { openImagePicker({ title: 'Ajouter une image', exclude: ['upload', 'webcam'] })
+        .then((r) => { if (r?.kind === 'url') appendProp(el, 'images', r.url) }) } })
       break
   }
   return out

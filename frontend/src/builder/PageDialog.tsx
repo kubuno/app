@@ -56,7 +56,7 @@ export default function PageDialog({ onClose, onPick }: { onClose: () => void; o
           <div className="w-48 shrink-0 overflow-auto border-r border-slate-200 bg-slate-50 p-2">
             {themes.map((t) => (
               <button key={t} type="button" onClick={() => setTheme(t)}
-                className={`mb-0.5 block w-full truncate rounded-md px-2.5 py-1.5 text-left text-[13px] ${theme === t ? 'bg-blue-100 font-medium text-blue-800' : 'text-slate-600 hover:bg-slate-100'}`}>
+                className={`mb-0.5 block w-full truncate rounded-md px-2.5 py-1.5 text-left text-xs ${theme === t ? 'bg-blue-100 font-medium text-blue-800' : 'text-slate-600 hover:bg-slate-100'}`}>
                 {t}{t === USER_THEME && saved.length ? ` (${saved.length})` : ''}
               </button>
             ))}
@@ -117,7 +117,7 @@ function TemplateCard({ title, subtitle, page, onClick }: { title: string; subti
         <TemplateThumb page={page} />
       </div>
       <div className="px-3 py-2">
-        <div className="truncate text-[13px] font-semibold text-slate-800">{title}</div>
+        <div className="truncate text-xs font-semibold text-slate-800">{title}</div>
         <div className="truncate text-[11px] text-slate-500">{subtitle}</div>
       </div>
     </button>

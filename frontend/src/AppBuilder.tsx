@@ -4,9 +4,10 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { format } from 'date-fns'
 import { useAuthStore, DockArea, WORKSPACE_LIGHT, getDateLocale, prompt, useNotificationStore, type DockPanel } from '@kubuno/sdk'
-import { Button, Input, Dropdown, ColorField } from '@ui'
+import { Button, Input, Dropdown, ColorField, useIsMobile, useSaveShortcut } from '@ui'
+import { MobilePanelSheet } from './shell/MobilePanelSheet'
 import {
-  Undo2, Redo2, Monitor, Tablet, Smartphone, Play, X,
+  Undo2, Redo2, Monitor, Tablet, Smartphone, Play, X, ArrowLeft, PenLine, Eye, SlidersHorizontal, ListTree,
   Layout, Database, Zap, Settings as SettingsIcon, Plus, Globe, Check, ExternalLink, Copy, FileText,
   Container, Heading, Type, MousePointerClick, Image as ImageIcon, Sparkles, Minus,
   Rows3, ChevronsLeftRightEllipsis, LayoutGrid, Map as MapIcon, DollarSign, Repeat,
@@ -34,7 +35,7 @@ import { PresenceAvatarList } from './collab/presence'
 import { CollabContext } from './collab/CollabContext'
 import ShareDialog from './ShareDialog'
 import { THEME_APP, fileAccentFor } from './ribbon/officeThemes'
-import { useFileTab, backstageLabels, InfoPanel } from './ribbon/ModuleBackstage'
+import { useFileTab, backstageLabels, BackstageInfo } from './ribbon/ModuleBackstage'
 import AppStartContent from './AppStartContent'
 import type { RibbonTab } from './ribbon/types'
 import type { AppDefinition, ElementType } from './types'
@@ -64,6 +65,13 @@ export default function AppBuilder() {
   const appName = useBuilder((s) => s.appName)
   const dirty = useBuilder((s) => s.dirty)
   const preview = useBuilder((s) => s.preview)
+  const isMobileView = useIsMobile()
+  // Mobile : l'application s'ouvre sur son APERÇU (le runtime, plein écran) —
+  // c'est ce qu'on veut voir d'un téléphone ; « Modifier » entre dans le
+  // concepteur. Même modèle « lecture d'abord » que les éditeurs Office.
+  const mobileFirstRef = useRef(false)
+  // Panneau du concepteur ouvert en feuille du bas (mobile).
+  const [mobilePanel, setMobilePanel] = useState<'elements' | 'tree' | 'inspector' | null>(null)
   const leftTab = useBuilder((s) => s.leftTab)
   const device = useBuilder((s) => s.device)
   const load = useBuilder((s) => s.load)
@@ -122,6 +130,9 @@ export default function AppBuilder() {
   // Force an immediate save (shared Save button) — cancels the pending autosave
   // debounce and persists the current definition right away. Keeps `saveStatus`
   // and autosave intact (same path: appApi.update + markSaved + setSaving).
+  // Ctrl+S / ⌘S saves immediately.
+  useSaveShortcut(() => { void save() })
+
   const save = async () => {
     const st = useBuilder.getState()
     if (!st.appId || !st.def || !isOwner) return
@@ -198,16 +209,19 @@ export default function AppBuilder() {
     openKey: id,
     doc: {
       info: (
-        <InfoPanel
+        <BackstageInfo
           title={appName || t('app')}
+          extension=".kbapp"
           subtitle={t('app')}
-          rows={[
+          general={[
             [t('office_bs_info_type', { defaultValue: 'Type' }), def?.settings?.kind === 'mobile' ? t('kind_mobile') : t('kind_web')],
-            [t('view_pages', { defaultValue: 'Pages' }), def?.pages.length ?? 0],
             [t('published'), published ? t('yes', { defaultValue: 'Oui' }) : t('no', { defaultValue: 'Non' })],
             ...(updatedAt
               ? [[t('office_bs_info_modified', { defaultValue: 'Modifié le' }), format(new Date(updatedAt), 'd MMM yyyy', { locale: getDateLocale(i18n.language) })] as [string, string]]
               : []),
+          ]}
+          stats={[
+            [t('view_pages', { defaultValue: 'Pages' }), def?.pages.length ?? 0],
           ]}
         />
       ),
@@ -216,11 +230,63 @@ export default function AppBuilder() {
     },
   })
 
+  // Mobile : le canevas du concepteur est dessiné à la largeur d'une page « web »
+  // (≈1100 px) → au zoom 1 il déborde largement. On l'ajuste une fois à la largeur
+  // de l'écran (l'utilisateur reste maître du zoom ensuite).
+  const zoomFittedRef = useRef(false)
+  useEffect(() => {
+    if (!isMobileView || zoomFittedRef.current || !def || preview) return
+    zoomFittedRef.current = true
+    const kind = def.settings?.kind ?? 'web'
+    const pageW = kind === 'mobile' ? 390 : 1100
+    const avail = Math.max(240, window.innerWidth - 60)   // rail des sections + marges
+    useBuilder.getState().setCanvasZoom(Math.min(1, avail / pageW))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobileView, def, preview])
+
+  // Mobile : basculer en APERÇU dès que la définition est chargée (une seule fois —
+  // ensuite l'utilisateur est maître de l'aller-retour aperçu ↔ concepteur).
+  useEffect(() => {
+    if (!isMobileView || mobileFirstRef.current || !def) return
+    mobileFirstRef.current = true
+    if (!preview) togglePreview()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobileView, def])
+
   if (loading || !def) {
     return <div className="flex h-full items-center justify-center text-slate-400">Chargement…</div>
   }
 
   if (preview) {
+    // MOBILE : pas de cadre d'appareil ni de marges — l'application occupe tout
+    // l'écran, avec une barre minimale (retour · titre · « Modifier »).
+    if (isMobileView) {
+      // Immersion : on réutilise la coquille (topbar unique, ruban VIDE → plein
+      // écran) au lieu d'empiler une barre d'aperçu sous l'en-tête global du core.
+      return (
+        <OfficeShell
+          ribbon={[]}
+          hideHeaderActions
+          chromeless
+          topbarHeight={64}
+          theme={THEME_APP}
+          titleIcon={<AppLogo size={20} className="flex-shrink-0" />}
+          title={appName}
+          onBack={() => navigate('/app')}
+          titleActions={
+            <button type="button" onClick={togglePreview}
+              className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-white/15 text-white text-xs font-medium border border-white/25 hover:bg-white/25 transition-colors flex-shrink-0"
+              title="Modifier">
+              <PenLine size={15} /> Modifier
+            </button>
+          }
+        >
+          <div className="flex-1 min-h-0 overflow-auto bg-white">
+            {appId && <AppRuntime def={def} appId={appId} currentUser={user ? { id: user.id, email: user.email } : undefined} />}
+          </div>
+        </OfficeShell>
+      )
+    }
     return (
       <div className="flex h-full flex-col bg-slate-100">
         <div className="flex items-center gap-2 border-b border-slate-200 bg-white px-3 py-2">
@@ -321,6 +387,13 @@ export default function AppBuilder() {
       { id: 'edit', label: t('grp_editing', { defaultValue: 'Édition' }), items: [
         { id: 'del', kind: 'button', icon: <Trash2 size={15} />, label: t('delete'), shortcut: 'Suppr', disabled: !selectedId, onClick: () => selectedId && s().deleteElement(selectedId) },
       ] },
+      // MOBILE : la zone de docking (Éléments / Arborescence / Inspecteur) ne tient
+      // pas sur un téléphone → les trois panneaux s'ouvrent en feuille du bas.
+      ...(isMobileView ? [{ id: 'panels', label: t('grp_panels', { defaultValue: 'Panneaux' }), items: [
+        { id: 'p-elements', kind: 'button' as const, size: 'large' as const, icon: <LayoutGrid size={18} />, label: 'Éléments', onClick: () => setMobilePanel('elements') },
+        { id: 'p-tree', kind: 'button' as const, icon: <ListTree size={15} />, label: 'Arborescence', onClick: () => setMobilePanel('tree') },
+        { id: 'p-inspector', kind: 'button' as const, icon: <SlidersHorizontal size={15} />, label: 'Inspecteur', onClick: () => setMobilePanel('inspector') },
+      ] }] : []),
       { id: 'pages', label: t('view_pages', { defaultValue: 'Pages' }), items: [
         { id: 'newpage', kind: 'button', size: 'large', icon: <FilePlus2 size={18} />, label: t('page_new', { defaultValue: 'Nouvelle page' }), onClick: () => setPageDialogOpen(true) },
       ] },
@@ -430,9 +503,10 @@ export default function AppBuilder() {
         confirmLabel: t('app_delete_confirm_ok', { defaultValue: 'Supprimer' }),
         variant: 'danger',
       }}
-      statusBar={leftTab === 'design' || leftTab === 'reports' ? <BuilderStatusBar /> : undefined}
+      // Barre de statut (compteur + zoom) masquée sur mobile : trois rangées de
+      // chrome sous le canevas (pages + statut + ruban) ne laissaient plus rien.
+      statusBar={!isMobileView && (leftTab === 'design' || leftTab === 'reports') ? <BuilderStatusBar /> : undefined}
       statusHeight={26}
-      saveStatus={<span className="text-[11px] text-text-tertiary">{saving ? 'Enregistrement…' : dirty ? 'Modifié' : 'Enregistré'}</span>}
       topbarActions={
         <div className="flex items-center gap-2">
           <PresenceAvatarList users={presenceUsers} />
@@ -465,6 +539,7 @@ export default function AppBuilder() {
       }
       bottomBar={<PagesBar onAdd={() => setPageDialogOpen(true)} />}
     >
+      {isMobileView ? viewport : (
       <DockArea
         panels={dockPanels}
         storageKey="kubuno:app:dockLayout"
@@ -476,6 +551,17 @@ export default function AppBuilder() {
       >
         {viewport}
       </DockArea>
+      )}
+      {/* Panneaux du concepteur en FEUILLE DU BAS (mobile) : même contenu. */}
+      {isMobileView && mobilePanel && (
+        <MobilePanelSheet
+          title={dockPanels[mobilePanel].label}
+          height={mobilePanel === 'elements' ? '70vh' : '60vh'}
+          onClose={() => setMobilePanel(null)}
+        >
+          {dockPanels[mobilePanel].render()}
+        </MobilePanelSheet>
+      )}
     </OfficeShell>
     {shareOpen && <PublishDialog url={shareUrl} published={published} onUnpublish={() => { publishApp(false); setShareOpen(false) }} onClose={() => setShareOpen(false)} />}
     {pageDialogOpen && <PageDialog onClose={() => setPageDialogOpen(false)} onPick={(page) => addPageDef(page)} />}
