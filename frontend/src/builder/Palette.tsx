@@ -30,7 +30,8 @@ export default function Palette() {
     <div className="space-y-4 p-3">
       {CATEGORIES.map((cat) => (
         <div key={cat.id}>
-          <div className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{cat.label}</div>
+          {/* Panel section title: 14px bold, no forced caps and no letter-spacing. */}
+          <div className="mb-1.5 px-1 text-sm font-bold text-slate-400">{cat.label}</div>
           <div className="grid grid-cols-2 gap-1.5">
             {PALETTE.filter((p) => p.category === cat.id).map((item) => {
               const Ico = item.Icon

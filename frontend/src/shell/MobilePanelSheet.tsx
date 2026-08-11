@@ -18,7 +18,8 @@ export function MobilePanelSheet({ title, onClose, children, height = '62vh' }: 
       <div className="fixed left-0 right-0 bottom-0 z-[61] flex flex-col rounded-t-2xl bg-surface-1 shadow-2xl overflow-hidden"
         style={{ height, paddingBottom: 'env(safe-area-inset-bottom)', animation: 'kb-sheet-up .18s ease-out' }}>
         <div className="flex items-center justify-between px-4 pt-3 pb-2 flex-shrink-0 border-b border-border">
-          <span className="text-xs font-medium text-text-secondary uppercase tracking-wide">{title}</span>
+          {/* Panel section title: 14px bold, no forced caps and no letter-spacing. */}
+          <span className="text-sm font-bold text-text-secondary">{title}</span>
           <button onClick={onClose} className="w-9 h-9 -mr-2 flex items-center justify-center rounded-full text-text-secondary active:bg-surface-2">
             <X size={18} />
           </button>

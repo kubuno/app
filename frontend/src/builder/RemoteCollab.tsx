@@ -48,7 +48,7 @@ export function RemoteCollab({ awareness, pageId, zoom, frameRef }: {
   return (
     <>
       {sels.map((s, i) => (
-        <div key={i} className="pointer-events-none absolute z-20"
+        <div key={i} className="kb-collab-indicator pointer-events-none absolute z-20"
              style={{ left: s.box.left, top: s.box.top, width: s.box.width, height: s.box.height,
                       boxShadow: `0 0 0 2px ${s.color}`, borderRadius: 4 }}>
           <div className="absolute left-0 top-0 rounded-br rounded-tl px-1 text-[10px] font-medium leading-tight text-white whitespace-nowrap"

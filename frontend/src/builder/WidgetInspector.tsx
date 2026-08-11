@@ -13,8 +13,9 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
     </label>
   )
 }
+// Panel section title: 14px bold, no forced caps and no letter-spacing.
 function Sep({ label }: { label: string }) {
-  return <div className="mb-2 mt-3 border-t border-slate-200 pt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</div>
+  return <div className="mb-2 mt-3 border-t border-slate-200 pt-2 text-sm font-bold text-slate-400">{label}</div>
 }
 const str = (v: unknown, fb = '') => (v == null ? fb : String(v))
 

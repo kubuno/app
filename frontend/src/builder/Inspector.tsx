@@ -28,7 +28,8 @@ function Select({ value, onChange, options }: { value: string; onChange: (v: str
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="border-b border-slate-100 px-3 py-3">
-      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">{title}</div>
+      {/* Panel section title: 14px bold, no forced caps and no letter-spacing. */}
+      <div className="mb-2 text-sm font-bold text-slate-400">{title}</div>
       {children}
     </div>
   )

@@ -7,11 +7,11 @@ import { useAuthStore, DockArea, WORKSPACE_LIGHT, getDateLocale, prompt, useNoti
 import { Button, Input, Dropdown, ColorField, useIsMobile, useSaveShortcut } from '@ui'
 import { MobilePanelSheet } from './shell/MobilePanelSheet'
 import {
-  Undo2, Redo2, Monitor, Tablet, Smartphone, Play, X, ArrowLeft, PenLine, Eye, SlidersHorizontal, ListTree,
+  Monitor, Tablet, Smartphone, Play, X, ArrowLeft, PenLine, Eye, SlidersHorizontal, ListTree,
   Layout, Database, Zap, Settings as SettingsIcon, Plus, Globe, Check, ExternalLink, Copy, FileText,
   Container, Heading, Type, MousePointerClick, Image as ImageIcon, Sparkles, Minus,
   Rows3, ChevronsLeftRightEllipsis, LayoutGrid, Map as MapIcon, DollarSign, Repeat,
-  Scissors, ClipboardPaste, Trash2, FilePlus2, Pencil, LayoutTemplate, AppWindow, Star, UserPlus,
+  Trash2, FilePlus2, Pencil, LayoutTemplate, AppWindow, Star, UserPlus,
 } from 'lucide-react'
 import { appApi } from './api'
 import { useBuilder, currentPage, findEl, isContainerType, type LeftTab, type Device } from './store'
@@ -29,6 +29,7 @@ import AppRuntime from './runtime/AppRuntime'
 import { OfficeShell } from './shell/OfficeShell'
 import { SaveButton } from './ribbon/SaveButton'
 import { UndoRedoButtons } from './ribbon/UndoRedoButtons'
+import { clipboardGroup } from './ribbon/clipboardGroup'
 import { AppLogo } from './AppLogo'
 import { useAppCollab } from './collab/useAppCollab'
 import { PresenceAvatarList } from './collab/presence'
@@ -374,16 +375,17 @@ export default function AppBuilder() {
   const appRibbon: RibbonTab[] = [
     // ── Accueil ──
     { id: 'home', label: t('doc_tab_home', { defaultValue: 'Accueil' }), groups: [
-      { id: 'history', label: t('grp_history', { defaultValue: 'Historique' }), items: [
-        { id: 'undo', kind: 'button', size: 'large', icon: <Undo2 size={18} />, label: t('undo', { defaultValue: 'Annuler' }), shortcut: 'Ctrl+Z', disabled: !canUndo, onClick: undo },
-        { id: 'redo', kind: 'button', icon: <Redo2 size={15} />, label: t('redo', { defaultValue: 'Rétablir' }), shortcut: 'Ctrl+Y', disabled: !canRedo, onClick: redo },
-      ] },
-      { id: 'clip', label: t('grp_clipboard', { defaultValue: 'Presse-papiers' }), items: [
-        { id: 'paste', kind: 'button', size: 'large', icon: <ClipboardPaste size={18} />, label: t('paste', { defaultValue: 'Coller' }), shortcut: 'Ctrl+V', disabled: !hasClipboard, onClick: pasteSmart },
-        { id: 'copy', kind: 'button', icon: <Copy size={15} />, label: t('copy', { defaultValue: 'Copier' }), shortcut: 'Ctrl+C', disabled: !selectedId, onClick: () => selectedId && s().copyElement(selectedId) },
-        { id: 'cut', kind: 'button', icon: <Scissors size={15} />, label: t('cut', { defaultValue: 'Couper' }), shortcut: 'Ctrl+X', disabled: !selectedId, onClick: () => selectedId && s().cutElement(selectedId) },
-        { id: 'dup', kind: 'button', icon: <Copy size={15} />, label: t('duplicate'), shortcut: 'Ctrl+D', disabled: !selectedId, onClick: () => selectedId && s().duplicateElement(selectedId) },
-      ] },
+      // Clipboard is ALWAYS the first group of the Home tab (shared helper).
+      // Undo/Redo live in the tab strip (see `UndoRedoButtons` below), never here.
+      clipboardGroup({
+        t,
+        onPaste: pasteSmart, pasteDisabled: !hasClipboard,
+        onCut: () => { if (selectedId) s().cutElement(selectedId) }, cutDisabled: !selectedId,
+        onCopy: () => { if (selectedId) s().copyElement(selectedId) }, copyDisabled: !selectedId,
+        extraItems: [
+          { id: 'dup', kind: 'button', icon: <Copy size={15} />, label: t('duplicate'), shortcut: 'Ctrl+D', disabled: !selectedId, onClick: () => selectedId && s().duplicateElement(selectedId) },
+        ],
+      }),
       { id: 'edit', label: t('grp_editing', { defaultValue: 'Édition' }), items: [
         { id: 'del', kind: 'button', icon: <Trash2 size={15} />, label: t('delete'), shortcut: 'Suppr', disabled: !selectedId, onClick: () => selectedId && s().deleteElement(selectedId) },
       ] },
