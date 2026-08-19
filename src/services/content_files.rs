@@ -86,6 +86,24 @@ pub fn extract_definition(content: &Value) -> Value {
     content.get("definition").cloned().unwrap_or_else(empty_definition)
 }
 
+/// Refuses a definition larger than the instance ceiling. Measured on the
+/// UNCOMPRESSED JSON: that is the size an editor actually manipulates, and it
+/// does not move when the compression ratio does. `0` = unlimited.
+fn enforce_definition_size(state: &AppState, raw: &[u8]) -> Result<(), AppError> {
+    let max_kb = state.instance().max_definition_size_kb;
+    if max_kb <= 0 {
+        return Ok(());
+    }
+    let max_bytes = (max_kb as usize).saturating_mul(1024);
+    if raw.len() > max_bytes {
+        return Err(AppError::PolicyRefused(format!(
+            "Définition trop volumineuse : {} Kio pour un maximum de {max_kb} Kio.",
+            raw.len() / 1024
+        )));
+    }
+    Ok(())
+}
+
 fn kb_file_name(title: &str) -> String {
     let base = std::path::Path::new(title).file_stem().and_then(|s| s.to_str()).unwrap_or(title);
     let base = if base.trim().is_empty() { "Sans titre" } else { base.trim() };
@@ -101,6 +119,7 @@ pub async fn create_app_file(
         .map_err(AppError::Internal)?;
     let content = definition_content_from(definition);
     let raw = serde_json::to_vec(&content).map_err(|e| AppError::Internal(anyhow::anyhow!(e)))?;
+    enforce_definition_size(state, &raw)?;
     let gz  = gzip(&raw)?;
     let file = state.files_client.create_file_with_content(
         user_id, Some(folder.id), &kb_file_name(title), APP_MIME, Bytes::from(gz),
@@ -125,6 +144,7 @@ pub async fn read_definition(state: &AppState, user_id: Uuid, file_id: Uuid) -> 
 pub async fn write_definition(state: &AppState, user_id: Uuid, file_id: Uuid, definition: Value) -> Result<(), AppError> {
     let content = definition_content_from(definition);
     let raw = serde_json::to_vec(&content).map_err(|e| AppError::Internal(anyhow::anyhow!(e)))?;
+    enforce_definition_size(state, &raw)?;
     let gz  = gzip(&raw)?;
     state.files_client.update_file_content(user_id, file_id, Bytes::from(gz)).await
         .map_err(AppError::Internal).map(|_| ())

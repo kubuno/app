@@ -38,6 +38,28 @@ fn extract_shared_types(def: &Value) -> Vec<String> {
         .unwrap_or_default()
 }
 
+/// Enforces the instance-wide per-user app ceiling (`max_apps_per_user`) before a
+/// new app is created or duplicated. `0` means unlimited, so the check is skipped.
+/// Counts only live (non-trashed) apps the user owns.
+async fn enforce_app_quota(state: &AppState, owner: Uuid) -> Result<()> {
+    let max = state.instance().max_apps_per_user;
+    if max <= 0 {
+        return Ok(());
+    }
+    let count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM app.apps WHERE owner_id = $1 AND is_trashed = FALSE",
+    )
+    .bind(owner)
+    .fetch_one(&state.db)
+    .await?;
+    if count >= max as i64 {
+        return Err(AppError::PolicyRefused(format!(
+            "Limite de {max} applications par utilisateur atteinte (fixée par l'administrateur)"
+        )));
+    }
+    Ok(())
+}
+
 /// GET /apps — liste des applications (métadonnée seule, sans la définition).
 pub async fn list(
     State(state): State<AppState>,
@@ -64,6 +86,7 @@ pub async fn create(
     Json(dto): Json<CreateAppDto>,
 ) -> Result<Json<Application>> {
     dto.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    enforce_app_quota(&state, user.id).await?;
 
     let definition = dto.definition.unwrap_or_else(cf::empty_definition);
     let tags = dto.tags.unwrap_or_default();
@@ -197,6 +220,14 @@ pub async fn update(
     let description = dto.description.or(existing.description);
     let tags = dto.tags.unwrap_or(existing.tags);
     let is_published = dto.is_published.unwrap_or(existing.is_published);
+    // The same policy `publish` enforces: `PUT /apps/:id` also writes this flag,
+    // so without the check here the whole setting could be walked around by
+    // saving the app instead of pressing Publish.
+    if is_published && !existing.is_published && !state.instance().allow_public_publishing {
+        return Err(AppError::PolicyRefused(
+            "Publication publique désactivée par l'administrateur".into(),
+        ));
+    }
     let is_starred = dto.is_starred.unwrap_or(existing.is_starred);
 
     let (file_id, definition) = match dto.definition {
@@ -263,6 +294,7 @@ pub async fn duplicate(
     user: AppUserExt,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Application>> {
+    enforce_app_quota(&state, user.id).await?;
     let src = fetch_owned_full(&state, id, user.id).await?;
     let new_name = format!("{} (copie)", src.name);
     let new_file_id = cf::create_app_file(&state, user.id, &new_name, src.definition.clone()).await?;
@@ -296,6 +328,13 @@ pub async fn publish(
 ) -> Result<Json<Application>> {
     fetch_owned(&state, id, user.id).await?;
     let publish = body.get("published").and_then(|v| v.as_bool()).unwrap_or(true);
+    // Instance policy: an admin may forbid NEW public publications. Already-published
+    // apps are untouched; unpublishing (publish == false) is always allowed.
+    if publish && !state.instance().allow_public_publishing {
+        return Err(AppError::PolicyRefused(
+            "Publication publique désactivée par l'administrateur".into(),
+        ));
+    }
     let app = sqlx::query_as::<_, Application>(
         "UPDATE app.apps SET is_published = $2 WHERE id = $1 RETURNING *",
     )
@@ -312,6 +351,8 @@ pub async fn get_public(
     State(state): State<AppState>,
     Path(slug): Path<String>,
 ) -> Result<Json<Value>> {
+    // Instance policy: an admin may require an account to open a published app.
+    crate::handlers::data::assert_anonymous_access_allowed(&state)?;
     let row = sqlx::query_as::<_, (Uuid, Uuid, Option<Uuid>, String)>(
         "SELECT id, owner_id, file_id, name FROM app.apps WHERE slug = $1 AND is_published = TRUE AND is_trashed = FALSE",
     )

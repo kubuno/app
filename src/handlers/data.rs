@@ -83,9 +83,57 @@ fn apply_constraint(qb: &mut QueryBuilder<sqlx::Postgres>, c: &Constraint) {
     }
 }
 
+/// Instance policy: an administrator may require every visitor of a published
+/// app to hold an account. Checked on every auth-less entry point, BEFORE the
+/// slug is looked up, so the answer does not depend on whether the app exists.
+pub fn assert_anonymous_access_allowed(state: &AppState) -> Result<()> {
+    if state.instance().require_signin_for_published_apps {
+        return Err(AppError::Unauthorized);
+    }
+    Ok(())
+}
+
+/// Instance policy: whether an anonymous visitor may write. Reading a published
+/// app is a separate decision and stays governed by the setting above.
+fn assert_anonymous_writes_allowed(state: &AppState) -> Result<()> {
+    if !state.instance().allow_public_data_writes {
+        return Err(AppError::PolicyRefused(
+            "Écriture anonyme désactivée par l'administrateur".into(),
+        ));
+    }
+    Ok(())
+}
+
+/// Refuses one more record when the application already sits at the instance
+/// ceiling. `0` means unlimited and skips the count entirely.
+async fn enforce_record_quota(state: &AppState, app_id: Uuid) -> Result<()> {
+    let max = state.instance().max_records_per_app;
+    if max <= 0 {
+        return Ok(());
+    }
+    let held = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM app.records WHERE app_id = $1",
+    )
+    .bind(app_id)
+    .fetch_one(&state.db)
+    .await
+    .map_err(|e| {
+        tracing::error!(error = %e, app = %app_id, "Comptage des enregistrements pour le quota");
+        AppError::Database(e)
+    })?;
+
+    if held >= max as i64 {
+        return Err(AppError::PolicyRefused(format!(
+            "Quota atteint : {max} enregistrements au maximum par application sur cette instance."
+        )));
+    }
+    Ok(())
+}
+
 /// Résout une application PUBLIÉE par son slug → (app_id, owner_id). Garde pour
 /// l'accès public anonyme (apps publiées uniquement, hors corbeille).
 pub async fn resolve_published(state: &AppState, slug: &str) -> Result<(Uuid, Uuid)> {
+    assert_anonymous_access_allowed(state)?;
     sqlx::query_as::<_, (Uuid, Uuid)>(
         "SELECT id, owner_id FROM app.apps WHERE slug = $1 AND is_published = TRUE AND is_trashed = FALSE",
     )
@@ -161,6 +209,9 @@ async fn do_list(state: &AppState, app_id: Uuid, owner: Uuid, type_name: &str) -
 }
 
 async fn do_create(state: &AppState, app_id: Uuid, owner: Uuid, created_by: Option<Uuid>, type_name: &str, raw: Value) -> Result<Value> {
+    // Single choke point for every creation path — owner, anonymous visitor and
+    // shared pool all land here, so the ceiling cannot be walked around.
+    enforce_record_quota(state, app_id).await?;
     let data = if raw.is_object() { raw } else { json!({}) };
     let rec = sqlx::query_as::<_, Record>(
         r#"INSERT INTO app.records (app_id, owner_id, type_name, created_by, data)
@@ -249,6 +300,7 @@ pub async fn public_create(
     Path((slug, type_name)): Path<(String, String)>,
     Json(dto): Json<CreateRecordDto>,
 ) -> Result<Json<Value>> {
+    assert_anonymous_writes_allowed(&state)?;
     let (app_id, owner) = resolve_published(&state, &slug).await?;
     Ok(Json(do_create(&state, app_id, owner, None, &type_name, dto.data).await?))
 }
@@ -258,6 +310,7 @@ pub async fn public_update(
     Path((slug, _type_name, rid)): Path<(String, String, Uuid)>,
     Json(dto): Json<UpdateRecordDto>,
 ) -> Result<Json<Value>> {
+    assert_anonymous_writes_allowed(&state)?;
     let (app_id, owner) = resolve_published(&state, &slug).await?;
     Ok(Json(do_update(&state, app_id, owner, rid, dto.data).await?))
 }
@@ -266,6 +319,7 @@ pub async fn public_delete(
     State(state): State<AppState>,
     Path((slug, _type_name, rid)): Path<(String, String, Uuid)>,
 ) -> Result<Json<Value>> {
+    assert_anonymous_writes_allowed(&state)?;
     let (app_id, owner) = resolve_published(&state, &slug).await?;
     Ok(Json(do_delete(&state, app_id, owner, rid).await?))
 }

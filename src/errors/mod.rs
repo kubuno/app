@@ -13,6 +13,11 @@ pub enum AppError {
     #[error("Accès refusé")]
     Forbidden,
 
+    /// A 403 carrying an administrator-facing reason (e.g. an instance policy the
+    /// admin turned off). Unlike `Forbidden`, the message is surfaced to the user.
+    #[error("{0}")]
+    PolicyRefused(String),
+
     #[error("Ressource introuvable: {0}")]
     NotFound(String),
 
@@ -34,6 +39,7 @@ impl IntoResponse for AppError {
         let (status, code, msg) = match &self {
             AppError::Unauthorized  => (StatusCode::UNAUTHORIZED,          "UNAUTHORIZED", self.to_string()),
             AppError::Forbidden     => (StatusCode::FORBIDDEN,             "FORBIDDEN",    self.to_string()),
+            AppError::PolicyRefused(_) => (StatusCode::FORBIDDEN,          "FORBIDDEN",    self.to_string()),
             AppError::NotFound(_)   => (StatusCode::NOT_FOUND,             "NOT_FOUND",    self.to_string()),
             AppError::Validation(_) => (StatusCode::UNPROCESSABLE_ENTITY,  "VALIDATION",   self.to_string()),
             AppError::Conflict(_)   => (StatusCode::CONFLICT,              "CONFLICT",     self.to_string()),

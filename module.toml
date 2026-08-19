@@ -30,6 +30,86 @@ position = 62
 protected_folder = "App"
 section  = "main"
 
+# Panneau d'administration d'instance (Modules ▸ App).
+[[setting_groups]]
+id          = "policies"
+label       = "Politiques"
+icon        = "Shield"
+position    = 1
+description  = "Contrôle de la publication publique des applications et des quotas par utilisateur."
+
+[[settings]]
+key     = "allow_public_publishing"
+scope   = "global"
+group   = "policies"
+type    = "bool"
+default = true
+label   = "Autoriser la publication publique"
+description = "Si désactivé, les propriétaires ne peuvent plus publier de NOUVELLE application sur l'URL publique sans authentification (/public/apps/:slug). Les applications déjà publiées restent servies."
+
+[[settings]]
+key     = "require_signin_for_published_apps"
+scope   = "global"
+group   = "policies"
+type    = "bool"
+default = false
+risk    = "warning"
+label   = "Exiger un compte pour ouvrir une application publiée"
+description = "Si activé, les adresses publiques d'une application publiée (page et données) refusent les visiteurs anonymes : seuls les comptes de l'instance peuvent l'ouvrir."
+
+[[settings]]
+key     = "allow_public_data_writes"
+scope   = "global"
+group   = "policies"
+type    = "bool"
+default = true
+risk    = "warning"
+label   = "Autoriser l'écriture anonyme dans les applications publiées"
+description = "Une application publiée accepte par défaut que des visiteurs non authentifiés créent, modifient et suppriment des enregistrements (formulaires publics). Désactiver rend ces applications lisibles seulement."
+
+[[settings]]
+key     = "max_apps_per_user"
+scope   = "global"
+group   = "policies"
+type    = "int"
+default = 0
+min     = 0
+max     = 100000
+label   = "Nombre maximal d'applications par utilisateur"
+description = "Plafond du nombre d'applications qu'un utilisateur peut posséder (création et duplication). 0 = illimité."
+
+# ── Quotas de données ──────────────────────────────────────────────────────────
+
+[[setting_groups]]
+id          = "quotas"
+label       = "Quotas de données"
+icon        = "Database"
+position    = 2
+description  = "Plafonds appliqués aux données et à la définition de chaque application."
+
+[[settings]]
+key     = "max_records_per_app"
+scope   = "global"
+group   = "quotas"
+type    = "int"
+default = 0
+min     = 0
+max     = 100000000
+label   = "Nombre maximal d'enregistrements par application"
+description = "Tous types de données confondus. Appliqué à toutes les voies de création (propriétaire, visiteur anonyme, pool partagé). 0 = illimité."
+
+[[settings]]
+key     = "max_definition_size_kb"
+scope   = "global"
+group   = "quotas"
+type    = "int"
+default = 0
+min     = 0
+max     = 1048576
+unit    = "Kio"
+label   = "Taille maximale de la définition d'une application"
+description = "Mesurée sur le JSON non compressé (pages, types de données, workflows, styles). Un enregistrement au-delà du plafond est refusé. 0 = illimité."
+
 [events]
 subscribed = []
 publishes = [

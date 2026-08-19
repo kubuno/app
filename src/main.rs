@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use kubuno_app::{config::Settings, router, state::AppState};
 use reqwest::Client;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sqlx::postgres::PgPoolOptions;
 use std::sync::Arc;
@@ -16,6 +16,67 @@ struct Manifest {
     #[serde(default)]
     sidebar_items: Vec<SidebarItemRaw>,
     events:        Option<ManifestEvents>,
+    /// Declarative instance settings (e.g. public-publishing policy).
+    #[serde(default)]
+    settings:      Vec<SettingDefRaw>,
+    /// Pages the admin panel is split into (`[[setting_groups]]`).
+    #[serde(default)]
+    setting_groups: Vec<SettingGroupRaw>,
+}
+
+/// One `[[setting_groups]]` entry of module.toml, forwarded verbatim. `id` is a
+/// STABLE, UNTRANSLATED slug: it travels in the URL of the admin page.
+#[derive(Deserialize, Serialize)]
+struct SettingGroupRaw {
+    id:          String,
+    label:       String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    icon:        Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    position:    Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    description: Option<String>,
+}
+
+/// One `[[settings]]` entry from module.toml, forwarded verbatim.
+#[derive(Deserialize, Serialize)]
+struct SettingDefRaw {
+    key:         String,
+    scope:       String,
+    #[serde(rename = "type")]
+    value_type:  String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    values:      Option<serde_json::Value>,
+    default:     serde_json::Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    label:       Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    description: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    category:    Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    group:       Option<String>,
+    #[serde(default)]
+    public:      bool,
+    // Presentation metadata the console understands. Forwarded verbatim so a
+    // bound declared in the manifest is also enforced by the core's write path.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    advanced:    bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    risk:        Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    min:         Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    max:         Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    unit:        Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    placeholder: Option<String>,
+    /// The `string` value is a LIST, one entry per line -> textarea.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    multiline:   bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    depends_on:  Option<String>,
 }
 #[derive(Deserialize)]
 struct ManifestModule {
@@ -119,14 +180,45 @@ async fn main() -> Result<()> {
         settings.core.internal_secret.clone(),
     ));
 
+    let http = Client::new();
+
+    // Instance settings: compiled defaults, then one read from the core so the
+    // first publish/create requests already see the administrator's policy.
+    let instance = Arc::new(std::sync::RwLock::new(
+        kubuno_app::config::instance::InstanceConfig::default(),
+    ));
+    if let Some(cfg) = kubuno_app::config::instance::fetch(
+        &http, &settings.core.url, &settings.core.internal_secret,
+    ).await {
+        if let Ok(mut w) = instance.write() { *w = cfg; }
+    }
+
     let state = AppState {
         db:       pool,
         settings: Arc::new(settings.clone()),
         files_client,
+        instance: instance.clone(),
     };
 
+    // Instance-settings refresher: an admin edit takes effect within a minute,
+    // no restart. A failed read keeps the last good values.
+    {
+        let http_r     = http.clone();
+        let settings_r = settings.clone();
+        let instance_r = instance.clone();
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(Duration::from_secs(60)).await;
+                if let Some(cfg) = kubuno_app::config::instance::fetch(
+                    &http_r, &settings_r.core.url, &settings_r.core.internal_secret,
+                ).await {
+                    if let Ok(mut w) = instance_r.write() { *w = cfg; }
+                }
+            }
+        });
+    }
+
     // Enregistrement auprès du core + heartbeat
-    let http = Client::new();
     register_with_core(&http, &settings).await;
     {
         let http2 = http.clone();
@@ -193,6 +285,15 @@ async fn register_with_core(http: &Client, settings: &Settings) {
         .map(|e| e.subscribed.clone())
         .unwrap_or_default();
 
+    // Declarative instance settings + admin pages, forwarded so the core can render
+    // the generic form and split the admin panel into sub-menus.
+    let settings_schema: Vec<Value> = manifest.as_ref()
+        .map(|m| m.settings.iter().map(|s| serde_json::to_value(s).unwrap_or(Value::Null)).collect())
+        .unwrap_or_default();
+    let setting_groups: Vec<Value> = manifest.as_ref()
+        .map(|m| m.setting_groups.iter().map(|g| serde_json::to_value(g).unwrap_or(Value::Null)).collect())
+        .unwrap_or_default();
+
     let payload = json!({
         "module_id":         "app",
         "display_name":      display_name,
@@ -203,6 +304,8 @@ async fn register_with_core(http: &Client, settings: &Settings) {
         "routes":            [{ "method": "*", "path": "/*" }],
         "sidebar_items":     sidebar_items,
         "subscribed_events": subscribed_events,
+        "settings_schema":   settings_schema,
+        "setting_groups":    setting_groups,
     });
 
     for attempt in 1u32.. {

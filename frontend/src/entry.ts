@@ -2,12 +2,12 @@
 import { lazy } from 'react'
 import {
   RouteRegistry, CollapseSidebarRegistry, WaffleAppRegistry, FileTypeRegistry,
-  FaviconRegistry, useToolbarStore, SlotRegistry, ModuleSettingsRegistry, SDK_VERSION,
+  FaviconRegistry, useToolbarStore, ExtensionRegistry, ModuleSettingsRegistry, SDK_VERSION,
 } from '@kubuno/sdk'
 import './index.css'
 import './i18n'
 import AppLogo from './AppLogo'
-import AppNewActions from './AppNewActions'
+import { appNewActionItems } from './AppNewActions'
 
 export const sdkVersion = SDK_VERSION
 
@@ -25,8 +25,12 @@ export function register() {
   // L'éditeur occupe toute la largeur : on replie la sidebar du core.
   CollapseSidebarRegistry.add('/app')
 
-  // Bouton « Nouveau » du shell → ouvre le tableau de bord (choix web/mobile).
-  SlotRegistry.register('sidebar-new-actions', 'app', AppNewActions)
+  // Shell "New" button: contribute MenuItem[] DATA to the generic
+  // 'shell.new-actions' extension point (consumed by the shell's MenuDropdown).
+  ExtensionRegistry.register('shell.new-actions', 'app', {
+    moduleId: 'app',
+    items: appNewActionItems,
+  })
 
   useToolbarStore.getState().register({ moduleId: 'app', routePrefix: '/app', noPadding: true })
 
