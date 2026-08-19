@@ -9,4 +9,7 @@ number at release time, and CI publishes that section as the GitHub Release note
 
 ## [Unreleased]
 
-[Unreleased]: https://github.com/kubuno/app/compare/v0.1.5...HEAD
+## [0.1.6] - 2026-08-19
+
+[Unreleased]: https://github.com/kubuno/app/compare/v0.1.6...HEAD
+[0.1.6]: https://github.com/kubuno/app/releases/tag/v0.1.6
