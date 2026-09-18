@@ -1,3 +1,4 @@
+import { prompt, openImagePicker } from '@kubuno/sdk'
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import {
   Plus, Trash2, FileText, Type as TypeIcon, Sigma, Hash, Minus, Square, FileDown, Database, Layers,
@@ -7,7 +8,6 @@ import {
   Bold, Italic, AlignLeft, AlignCenter, AlignRight, X, RefreshCw, Eye,
   Image as ImageIcon, Circle, SquareCheck, Pilcrow, EyeOff, Eraser, Rows3, ArrowDownToLine,
 } from 'lucide-react'
-import { prompt, openImagePicker } from '@kubuno/sdk'
 import { Button, Input, Textarea, Dropdown, Checkbox, MenuDropdown, type MenuItem, type MenuDropdownPos } from '@ui'
 import type { Report, ReportBand, ReportObject, SummaryFn, SpecialField, ValueFormat } from '../types'
 import { useBuilder, uid } from '../store'

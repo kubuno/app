@@ -1,3 +1,4 @@
+import { useAuthStore } from '@kubuno/sdk'
 import * as Y from 'yjs'
 import {
   Awareness,
@@ -7,7 +8,6 @@ import {
 } from 'y-protocols/awareness'
 import { IndexeddbPersistence } from 'y-indexeddb'
 import { useEffect, useRef } from 'react'
-import { useAuthStore } from '@kubuno/sdk'
 
 // Encodage base64 d'un binaire d'awareness (passe par le canal texte Txt du core,
 // qui relaie les trames texte telles quelles entre clients d'une même room).

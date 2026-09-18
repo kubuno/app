@@ -1,3 +1,4 @@
+import { i18n, navigate } from '@kubuno/sdk'
 /**
  * Items of the sidebar "New" button for App — DATA for the project's menu
  * component (`MenuDropdown` from @ui), contributed through the generic
@@ -8,7 +9,6 @@ import type { MenuItem } from '@ui'
 import { AppWindow } from 'lucide-react'
 // `navigate` is the core's SPA navigation helper for code running outside
 // React: the shell hands it the router's real `navigate`.
-import { i18n, navigate } from '@kubuno/sdk'
 
 export function appNewActionItems(): MenuItem[] {
   if (!window.location.pathname.startsWith('/app')) return []

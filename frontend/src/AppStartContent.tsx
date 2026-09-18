@@ -1,8 +1,7 @@
+import { getIcon, formatDate } from '@kubuno/sdk'
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { format } from 'date-fns'
-import { getDateLocale, getIcon } from '@kubuno/sdk'
 import { Button } from '@ui'
 import type { StartPageRecentItem } from '@ui'
 import { ModuleStartPage } from '@kubuno/drive'
@@ -59,7 +58,7 @@ export default function AppStartContent() {
   const recentItems: StartPageRecentItem[] = apps.slice(0, 12).map((app) => ({
     id:       app.id,
     name:     app.name,
-    subtitle: app.updated_at ? format(new Date(app.updated_at), 'd MMM', { locale: getDateLocale(i18n.language) }) : undefined,
+    subtitle: app.updated_at ? formatDate(new Date(app.updated_at), 'date') : undefined,
     icon:     <AppWindow size={18} className="text-text-tertiary" strokeWidth={1.5} />,
     onClick:  () => navigate(`/app/${app.id}`),
     actions: [

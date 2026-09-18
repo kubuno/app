@@ -1,9 +1,8 @@
+import { useAuthStore, DockArea, WORKSPACE_LIGHT, prompt, useNotificationStore, type DockPanel, formatDate } from '@kubuno/sdk'
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { format } from 'date-fns'
-import { useAuthStore, DockArea, WORKSPACE_LIGHT, getDateLocale, prompt, useNotificationStore, type DockPanel } from '@kubuno/sdk'
 import { Button, Input, Dropdown, ColorField, useIsMobile, useSaveShortcut } from '@ui'
 import { MobilePanelSheet } from './shell/MobilePanelSheet'
 import {
@@ -218,7 +217,7 @@ export default function AppBuilder() {
             [t('office_bs_info_type', { defaultValue: 'Type' }), def?.settings?.kind === 'mobile' ? t('kind_mobile') : t('kind_web')],
             [t('published'), published ? t('yes', { defaultValue: 'Oui' }) : t('no', { defaultValue: 'Non' })],
             ...(updatedAt
-              ? [[t('office_bs_info_modified', { defaultValue: 'Modifié le' }), format(new Date(updatedAt), 'd MMM yyyy', { locale: getDateLocale(i18n.language) })] as [string, string]]
+              ? [[t('office_bs_info_modified', { defaultValue: 'Modifié le' }), formatDate(new Date(updatedAt), 'date')] as [string, string]]
               : []),
           ]}
           stats={[
@@ -276,7 +275,7 @@ export default function AppBuilder() {
           onBack={() => navigate('/app')}
           titleActions={
             <button type="button" onClick={togglePreview}
-              className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-white/15 text-white text-xs font-medium border border-white/25 hover:bg-white/25 transition-colors flex-shrink-0"
+              className="flex items-center gap-1.5 h-8 px-3 rounded-md bg-white/15 text-white text-xs font-medium border border-white/25 hover:bg-white/25 transition-colors flex-shrink-0"
               title="Modifier">
               <PenLine size={15} /> Modifier
             </button>
@@ -516,13 +515,13 @@ export default function AppBuilder() {
           {/* Style blanc translucide : lisible sur la topbar colorée (cf. « Partager » du tableur). */}
           {isOwner && (
             <button type="button" onClick={() => setCollabShareOpen(true)} title="Partager (collaboration temps réel)"
-              className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-white/15 text-white text-sm font-medium border border-white/25 hover:bg-white/25 transition-colors">
+              className="flex items-center gap-1.5 h-8 px-3 rounded-md bg-white/15 text-white text-sm font-medium border border-white/25 hover:bg-white/25 transition-colors">
               <UserPlus size={15} /> Partager
             </button>
           )}
           {isOwner && (
             <button type="button" onClick={onPublishClick}
-              className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-white/15 text-white text-sm font-medium border border-white/25 hover:bg-white/25 transition-colors">
+              className="flex items-center gap-1.5 h-8 px-3 rounded-md bg-white/15 text-white text-sm font-medium border border-white/25 hover:bg-white/25 transition-colors">
               {published ? <Check size={15} /> : <Globe size={15} />} {published ? 'Publié' : 'Publier'}
             </button>
           )}

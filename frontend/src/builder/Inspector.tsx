@@ -1,6 +1,6 @@
+import { openImagePicker } from '@kubuno/sdk'
 import { useMemo } from 'react'
 import { Button, Input, Textarea, Dropdown, Checkbox, ColorField } from '@ui'
-import { openImagePicker } from '@kubuno/sdk'
 import type { ConstraintOp, Dyn, Element, ElementStyle } from '../types'
 import { useBuilder, currentPage, findEl, isContainerType } from '../store'
 import DynEditor, { type DynInputs } from './DynEditor'

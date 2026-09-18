@@ -1,6 +1,6 @@
+import { useAuthStore } from '@kubuno/sdk'
 import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { useAuthStore } from '@kubuno/sdk'
 import { appApi } from './api'
 import AppRuntime from './runtime/AppRuntime'
 

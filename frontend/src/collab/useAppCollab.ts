@@ -1,3 +1,4 @@
+import { useAuthStore } from '@kubuno/sdk'
 // Real-time collaboration for the app builder, on top of the core's generic Yjs
 // relay (`/collab/:room/sync`) — same mechanism the office sub-modules use.
 //
@@ -8,7 +9,6 @@
 import { useEffect, useMemo, useRef } from 'react'
 import * as Y from 'yjs'
 import { Awareness } from 'y-protocols/awareness'
-import { useAuthStore } from '@kubuno/sdk'
 import { useCollab } from './collabProvider'
 import { usePresenceUsers, userColor, type PresenceUser } from './presence'
 import { useBuilder } from '../store'

@@ -1,9 +1,6 @@
+import { RouteRegistry, CollapseSidebarRegistry, WaffleAppRegistry, FileTypeRegistry, FaviconRegistry, useToolbarStore, ExtensionRegistry, ModuleSettingsRegistry, SDK_VERSION } from '@kubuno/sdk'
 /** Bundle MODULE app — chargé à l'exécution (cf. vite.config). */
 import { lazy } from 'react'
-import {
-  RouteRegistry, CollapseSidebarRegistry, WaffleAppRegistry, FileTypeRegistry,
-  FaviconRegistry, useToolbarStore, ExtensionRegistry, ModuleSettingsRegistry, SDK_VERSION,
-} from '@kubuno/sdk'
 import './index.css'
 import './i18n'
 import AppLogo from './AppLogo'
@@ -12,7 +9,7 @@ import { appNewActionItems } from './AppNewActions'
 export const sdkVersion = SDK_VERSION
 
 export function register() {
-  FaviconRegistry.register('app', '/app-logo.svg')
+  FaviconRegistry.register('app', '/app-logo.png')
 
   // Type de fichier Kubuno produit par App (.kbapp) — StartPage + icône + ouverture.
   FileTypeRegistry.register({

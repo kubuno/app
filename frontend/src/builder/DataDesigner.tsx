@@ -1,10 +1,10 @@
+import { prompt } from '@kubuno/sdk'
 import { useEffect, useRef, useState } from 'react'
 import {
   Plus, Trash2, Database, RefreshCw, Users, Search, Copy, Download, Upload,
   Type as TypeIcon, AlignLeft, Hash, ToggleLeft, Calendar, List, GripVertical,
   ChevronUp, ChevronDown, CheckSquare, Square,
 } from 'lucide-react'
-import { prompt } from '@kubuno/sdk'
 import { Button, Input, Dropdown, Checkbox, MenuDropdown, type MenuItem, type MenuDropdownPos } from '@ui'
 import type { DataType, Field, FieldType } from '../types'
 import { useBuilder, uid } from '../store'
