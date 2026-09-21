@@ -2,15 +2,27 @@
 //!
 //! Les types de données définis par l'utilisateur (dans la définition `.kbapp`)
 //! n'ont PAS de table physique : leurs enregistrements vivent génériquement dans
-//! `app.records` (colonne JSONB `data`). Ce module expose un CRUD + une recherche
+//! `app.records` (colonne JSON `data`). Ce module expose un CRUD + une recherche
 //! par contraintes (filtre/tri/pagination) que le runtime de l'app consomme.
+//!
+//! # Portable JSON access (the no-code engine's hard part)
+//!
+//! The filters address arbitrary top-level keys of the `data` object, and the
+//! key comes from the caller. PostgreSQL's `data ->> key`, MySQL's
+//! `JSON_UNQUOTE(JSON_EXTRACT(...))` and SQLite's `json_extract(...)` differ in
+//! both spelling AND path syntax, so every access goes through [`push_json_text`]
+//! / [`push_json_number`], which emit the right form for the running engine and
+//! **bind the key as data** — never interpolate it. Dynamic filters are built
+//! with [`DbQueryBuilder`] under `SqlSafeStr`: structure is `&'static` text,
+//! every value (including the JSON key/path) is a placeholder.
 
 use axum::{
     extract::{Path, State},
     Json,
 };
+use kubuno_db::dialect::{Backend, SqlType};
+use kubuno_db::{params, DbQueryBuilder};
 use serde_json::{json, Value};
-use sqlx::QueryBuilder;
 use uuid::Uuid;
 
 use crate::{
@@ -22,12 +34,19 @@ use crate::{
 
 /// Vérifie que l'application appartient à l'utilisateur (sinon 404).
 async fn assert_app_owner(state: &AppState, app_id: Uuid, owner: Uuid) -> Result<()> {
-    let ok = sqlx::query_scalar::<_, bool>(
-        "SELECT EXISTS(SELECT 1 FROM app.apps WHERE id = $1 AND owner_id = $2)",
-    )
-    .bind(app_id).bind(owner)
-    .fetch_one(&state.db).await?;
-    if ok { Ok(()) } else { Err(AppError::NotFound("Application introuvable".into())) }
+    let sql = format!(
+        "SELECT {} FROM app.apps WHERE id = $1 AND owner_id = $2",
+        state.db.backend().count_bigint("*")
+    );
+    let n = state
+        .db
+        .fetch_scalar::<i64>(&sql, params![app_id, owner])
+        .await?;
+    if n > 0 {
+        Ok(())
+    } else {
+        Err(AppError::NotFound("Application introuvable".into()))
+    }
 }
 
 fn value_to_text(v: &Value) -> String {
@@ -39,31 +58,115 @@ fn value_to_text(v: &Value) -> String {
     }
 }
 
-/// Applique une contrainte à la clause WHERE en cours (paramètres liés = sûr).
-fn apply_constraint(qb: &mut QueryBuilder<sqlx::Postgres>, c: &Constraint) {
-    let field = c.field.clone();
+/// The JSON path bind value for a single top-level `field`, in the spelling the
+/// running engine's JSON functions expect: PostgreSQL binds the bare key (used
+/// with `->>`), MySQL and SQLite bind a `$."key"` path (double-quoted so a key
+/// with a dot stays a single member). The value is always a bound parameter.
+fn json_path(backend: Backend, field: &str) -> String {
+    match backend {
+        Backend::Postgres => field.to_string(),
+        Backend::MySql | Backend::Sqlite => {
+            format!("$.\"{}\"", field.replace('"', "\\\""))
+        }
+    }
+}
+
+/// Pushes an "extract top-level `field` from `data`, as text" expression,
+/// binding the key. Portable across the three engines.
+fn push_json_text(qb: &mut DbQueryBuilder, field: &str) {
+    let b = qb.backend();
+    match b {
+        Backend::Postgres => {
+            qb.push("data ->> ").push_bind(field.to_string());
+        }
+        Backend::MySql => {
+            qb.push("JSON_UNQUOTE(JSON_EXTRACT(data, ")
+                .push_bind(json_path(b, field))
+                .push("))");
+        }
+        Backend::Sqlite => {
+            qb.push("json_extract(data, ")
+                .push_bind(json_path(b, field))
+                .push(")");
+        }
+    }
+}
+
+/// Same as [`push_json_text`], but the extracted value is cast to a floating
+/// number for `>` / `<` comparisons.
+fn push_json_number(qb: &mut DbQueryBuilder, field: &str) {
+    let b = qb.backend();
+    match b {
+        Backend::Postgres => {
+            qb.push("(data ->> ")
+                .push_bind(field.to_string())
+                .push(")::double precision");
+        }
+        Backend::MySql => {
+            qb.push("CAST(JSON_UNQUOTE(JSON_EXTRACT(data, ")
+                .push_bind(json_path(b, field))
+                .push(")) AS DOUBLE)");
+        }
+        Backend::Sqlite => {
+            qb.push("CAST(json_extract(data, ")
+                .push_bind(json_path(b, field))
+                .push(") AS REAL)");
+        }
+    }
+}
+
+/// Applique une contrainte à la clause WHERE en cours (valeurs liées = sûr).
+fn apply_constraint(qb: &mut DbQueryBuilder, c: &Constraint) {
     match c.op.as_str() {
         "equals" => {
-            qb.push(" AND data ->> ").push_bind(field).push(" = ").push_bind(value_to_text(&c.value));
+            qb.push(" AND ");
+            push_json_text(qb, &c.field);
+            qb.push(" = ").push_bind(value_to_text(&c.value));
         }
         "not_equals" => {
-            qb.push(" AND data ->> ").push_bind(field).push(" IS DISTINCT FROM ").push_bind(value_to_text(&c.value));
+            // Null-safe "distinct from" — spelled three ways.
+            qb.push(" AND ");
+            match qb.backend() {
+                Backend::Postgres => {
+                    push_json_text(qb, &c.field);
+                    qb.push(" IS DISTINCT FROM ").push_bind(value_to_text(&c.value));
+                }
+                Backend::Sqlite => {
+                    push_json_text(qb, &c.field);
+                    qb.push(" IS NOT ").push_bind(value_to_text(&c.value));
+                }
+                Backend::MySql => {
+                    qb.push("NOT (");
+                    push_json_text(qb, &c.field);
+                    qb.push(" <=> ").push_bind(value_to_text(&c.value)).push(")");
+                }
+            }
         }
         "contains" => {
-            qb.push(" AND data ->> ").push_bind(field).push(" ILIKE ").push_bind(format!("%{}%", value_to_text(&c.value)));
+            qb.push(" AND LOWER(");
+            push_json_text(qb, &c.field);
+            qb.push(") LIKE LOWER(")
+                .push_bind(format!("%{}%", value_to_text(&c.value)))
+                .push(")");
         }
         "greater_than" => {
+            qb.push(" AND ");
             if let Some(n) = c.value.as_f64().or_else(|| value_to_text(&c.value).parse::<f64>().ok()) {
-                qb.push(" AND (data ->> ").push_bind(field).push(")::numeric > ").push_bind(n);
+                push_json_number(qb, &c.field);
+                qb.push(" > ").push_bind(n);
             } else {
-                qb.push(" AND data ->> ").push_bind(field).push(" > ").push_bind(value_to_text(&c.value));
+                push_json_text(qb, &c.field);
+                qb.push(" > ").push_bind(value_to_text(&c.value));
             }
         }
         "less_than" => {
+            qb.push(" AND ");
             if let Some(n) = c.value.as_f64().or_else(|| value_to_text(&c.value).parse::<f64>().ok()) {
-                qb.push(" AND (data ->> ").push_bind(field).push(")::numeric < ").push_bind(n);
+                push_json_number(qb, &c.field);
+                qb.push(" < ").push_bind(n);
             } else {
-                qb.push(" AND data ->> ").push_bind(field).push(" < ").push_bind(value_to_text(&c.value));
+                push_json_text(qb, &c.field);
+                qb.push(" < ").push_bind(value_to_text(&c.value));
             }
         }
         "in" => {
@@ -71,15 +174,53 @@ fn apply_constraint(qb: &mut QueryBuilder<sqlx::Postgres>, c: &Constraint) {
                 Value::Array(a) => a.iter().map(value_to_text).collect(),
                 other => vec![value_to_text(other)],
             };
-            qb.push(" AND data ->> ").push_bind(field).push(" = ANY(").push_bind(arr).push(")");
+            qb.push(" AND ");
+            push_json_text(qb, &c.field);
+            qb.push_in(arr);
         }
         "is_empty" => {
-            qb.push(" AND (data ->> ").push_bind(field.clone()).push(" IS NULL OR data ->> ").push_bind(field).push(" = '')");
+            qb.push(" AND (");
+            push_json_text(qb, &c.field);
+            qb.push(" IS NULL OR ");
+            push_json_text(qb, &c.field);
+            qb.push(" = '')");
         }
         "is_not_empty" => {
-            qb.push(" AND data ->> ").push_bind(field.clone()).push(" IS NOT NULL AND data ->> ").push_bind(field).push(" <> ''");
+            qb.push(" AND ");
+            push_json_text(qb, &c.field);
+            qb.push(" IS NOT NULL AND ");
+            push_json_text(qb, &c.field);
+            qb.push(" <> ''");
         }
         _ => { /* opérateur inconnu : ignoré */ }
+    }
+}
+
+/// Emits `app_id = ? AND owner_id = ? AND type_name = ?` plus every constraint
+/// and the free-text filter — the WHERE body shared by the search and its count.
+fn push_scope_and_filters(
+    qb: &mut DbQueryBuilder,
+    app_id: Uuid,
+    owner: Uuid,
+    type_name: &str,
+    q: &SearchQuery,
+) {
+    qb.push("app_id = ")
+        .push_bind(app_id)
+        .push(" AND owner_id = ")
+        .push_bind(owner)
+        .push(" AND type_name = ")
+        .push_bind(type_name.to_string());
+    for c in &q.constraints {
+        apply_constraint(qb, c);
+    }
+    if let Some(txt) = q.search_text.as_ref().filter(|s| !s.trim().is_empty()) {
+        let data_as_text = qb.backend().cast("data", SqlType::Text);
+        qb.push(" AND LOWER(")
+            .push(data_as_text)
+            .push(") LIKE LOWER(")
+            .push_bind(format!("%{}%", txt))
+            .push(")");
     }
 }
 
@@ -111,16 +252,18 @@ async fn enforce_record_quota(state: &AppState, app_id: Uuid) -> Result<()> {
     if max <= 0 {
         return Ok(());
     }
-    let held = sqlx::query_scalar::<_, i64>(
-        "SELECT COUNT(*) FROM app.records WHERE app_id = $1",
-    )
-    .bind(app_id)
-    .fetch_one(&state.db)
-    .await
-    .map_err(|e| {
-        tracing::error!(error = %e, app = %app_id, "Comptage des enregistrements pour le quota");
-        AppError::Database(e)
-    })?;
+    let sql = format!(
+        "SELECT {} FROM app.records WHERE app_id = $1",
+        state.db.backend().count_bigint("*")
+    );
+    let held = state
+        .db
+        .fetch_scalar::<i64>(&sql, params![app_id])
+        .await
+        .map_err(|e| {
+            tracing::error!(error = %e, app = %app_id, "Comptage des enregistrements pour le quota");
+            AppError::Database(e)
+        })?;
 
     if held >= max as i64 {
         return Err(AppError::PolicyRefused(format!(
@@ -134,12 +277,14 @@ async fn enforce_record_quota(state: &AppState, app_id: Uuid) -> Result<()> {
 /// l'accès public anonyme (apps publiées uniquement, hors corbeille).
 pub async fn resolve_published(state: &AppState, slug: &str) -> Result<(Uuid, Uuid)> {
     assert_anonymous_access_allowed(state)?;
-    sqlx::query_as::<_, (Uuid, Uuid)>(
-        "SELECT id, owner_id FROM app.apps WHERE slug = $1 AND is_published = TRUE AND is_trashed = FALSE",
-    )
-    .bind(slug)
-    .fetch_optional(&state.db).await?
-    .ok_or_else(|| AppError::NotFound("Application introuvable".into()))
+    state
+        .db
+        .fetch_optional_as::<(Uuid, Uuid)>(
+            "SELECT id, owner_id FROM app.apps WHERE slug = $1 AND is_published = $2 AND is_trashed = $3",
+            params![slug, true, false],
+        )
+        .await?
+        .ok_or_else(|| AppError::NotFound("Application introuvable".into()))
 }
 
 /// Résout l'accès aux données PARTAGÉES d'une app (multi-utilisateurs) →
@@ -148,12 +293,14 @@ pub async fn resolve_published(state: &AppState, slug: &str) -> Result<(Uuid, Uu
 /// partagé (`shared_types`). Les enregistrements vivent sous l'owner de l'app
 /// mais gardent l'identité du créateur (`created_by`).
 pub async fn resolve_shared(state: &AppState, app_id: Uuid, user_id: Uuid, type_name: &str) -> Result<Uuid> {
-    let row = sqlx::query_as::<_, (Uuid, bool, bool, Vec<String>)>(
-        "SELECT owner_id, is_published, is_shared, shared_types FROM app.apps WHERE id = $1 AND is_trashed = FALSE",
-    )
-    .bind(app_id)
-    .fetch_optional(&state.db).await?
-    .ok_or_else(|| AppError::NotFound("Application introuvable".into()))?;
+    let row = state
+        .db
+        .fetch_optional_as::<(Uuid, bool, bool, kubuno_db::JsonVec<String>)>(
+            "SELECT owner_id, is_published, is_shared, shared_types FROM app.apps WHERE id = $1 AND is_trashed = $2",
+            params![app_id, false],
+        )
+        .await?
+        .ok_or_else(|| AppError::NotFound("Application introuvable".into()))?;
     let (owner, is_published, is_shared, shared_types) = row;
     if !is_shared || !shared_types.iter().any(|t| t == type_name) {
         return Err(AppError::NotFound("Type de données non partagé".into()));
@@ -164,46 +311,66 @@ pub async fn resolve_shared(state: &AppState, app_id: Uuid, user_id: Uuid, type_
     Ok(owner)
 }
 
+/// Shallow-merges `patch` onto `base` (patch keys overwrite), the portable
+/// equivalent of PostgreSQL's `data || patch`. Done in Rust so the semantics are
+/// identical on all three engines (MySQL's `JSON_MERGE_PATCH` and SQLite's
+/// `json_patch` differ on how a null-valued key is treated).
+fn merge_shallow(base: Value, patch: Value) -> Value {
+    match (base, patch) {
+        (Value::Object(mut b), Value::Object(p)) => {
+            for (k, v) in p {
+                b.insert(k, v);
+            }
+            Value::Object(b)
+        }
+        (base, _) => base,
+    }
+}
+
 // ── Fonctions cœur (partagées par l'accès authentifié ET public) ─────────────
 // `owner` = propriétaire de l'app ; les enregistrements vivent toujours sous lui.
 
 async fn do_search(state: &AppState, app_id: Uuid, owner: Uuid, type_name: &str, q: &SearchQuery) -> Result<Value> {
-    let mut qb: QueryBuilder<sqlx::Postgres> =
-        QueryBuilder::new("SELECT * FROM app.records WHERE app_id = ");
-    qb.push_bind(app_id).push(" AND owner_id = ").push_bind(owner).push(" AND type_name = ").push_bind(type_name.to_string());
-    for c in &q.constraints { apply_constraint(&mut qb, c); }
-    if let Some(txt) = q.search_text.as_ref().filter(|s| !s.trim().is_empty()) {
-        qb.push(" AND data::text ILIKE ").push_bind(format!("%{}%", txt));
-    }
+    let backend = state.db.backend();
+
+    let mut qb = DbQueryBuilder::new(backend, "SELECT * FROM app.records WHERE ");
+    push_scope_and_filters(&mut qb, app_id, owner, type_name, q);
     match q.sort_field.as_deref() {
-        Some("_created_at") | None => { qb.push(" ORDER BY created_at"); }
-        Some("_updated_at") => { qb.push(" ORDER BY updated_at"); }
-        Some(f) => { qb.push(" ORDER BY data ->> ").push_bind(f.to_string()); }
+        Some("_created_at") | None => {
+            qb.push(" ORDER BY created_at");
+        }
+        Some("_updated_at") => {
+            qb.push(" ORDER BY updated_at");
+        }
+        Some(f) => {
+            qb.push(" ORDER BY ");
+            push_json_text(&mut qb, f);
+        }
     }
     qb.push(if q.sort_desc { " DESC" } else { " ASC" });
     let limit = q.limit.unwrap_or(200).clamp(1, 1000);
     let offset = q.offset.unwrap_or(0).max(0);
-    qb.push(" LIMIT ").push_bind(limit).push(" OFFSET ").push_bind(offset);
-    let rows = qb.build_query_as::<Record>().fetch_all(&state.db).await?;
+    qb.push_limit_offset(limit, offset);
+    let rows = qb.fetch_all_as::<Record>(&state.db).await?;
     let results: Vec<Value> = rows.iter().map(|r| r.flatten()).collect();
 
-    let mut cqb: QueryBuilder<sqlx::Postgres> =
-        QueryBuilder::new("SELECT COUNT(*) FROM app.records WHERE app_id = ");
-    cqb.push_bind(app_id).push(" AND owner_id = ").push_bind(owner).push(" AND type_name = ").push_bind(type_name.to_string());
-    for c in &q.constraints { apply_constraint(&mut cqb, c); }
-    if let Some(txt) = q.search_text.as_ref().filter(|s| !s.trim().is_empty()) {
-        cqb.push(" AND data::text ILIKE ").push_bind(format!("%{}%", txt));
-    }
-    let count: i64 = cqb.build_query_scalar().fetch_one(&state.db).await?;
+    let mut cqb = DbQueryBuilder::new(
+        backend,
+        format!("SELECT {} FROM app.records WHERE ", backend.count_bigint("*")),
+    );
+    push_scope_and_filters(&mut cqb, app_id, owner, type_name, q);
+    let count = cqb.fetch_scalar::<i64>(&state.db).await?;
     Ok(json!({ "results": results, "count": count }))
 }
 
 async fn do_list(state: &AppState, app_id: Uuid, owner: Uuid, type_name: &str) -> Result<Value> {
-    let rows = sqlx::query_as::<_, Record>(
-        "SELECT * FROM app.records WHERE app_id = $1 AND owner_id = $2 AND type_name = $3 ORDER BY created_at DESC LIMIT 1000",
-    )
-    .bind(app_id).bind(owner).bind(type_name)
-    .fetch_all(&state.db).await?;
+    let rows = state
+        .db
+        .fetch_all_as::<Record>(
+            "SELECT * FROM app.records WHERE app_id = $1 AND owner_id = $2 AND type_name = $3 ORDER BY created_at DESC LIMIT 1000",
+            params![app_id, owner, type_name.to_string()],
+        )
+        .await?;
     let results: Vec<Value> = rows.iter().map(|r| r.flatten()).collect();
     Ok(json!({ "results": results, "count": results.len() }))
 }
@@ -213,32 +380,74 @@ async fn do_create(state: &AppState, app_id: Uuid, owner: Uuid, created_by: Opti
     // shared pool all land here, so the ceiling cannot be walked around.
     enforce_record_quota(state, app_id).await?;
     let data = if raw.is_object() { raw } else { json!({}) };
-    let rec = sqlx::query_as::<_, Record>(
-        r#"INSERT INTO app.records (app_id, owner_id, type_name, created_by, data)
-           VALUES ($1, $2, $3, $4, $5) RETURNING *"#,
-    )
-    .bind(app_id).bind(owner).bind(type_name).bind(created_by).bind(&data)
-    .fetch_one(&state.db).await?;
+    // No RETURNING (MySQL has none): mint the id in Rust and reselect.
+    let id = kubuno_db::new_id();
+    let now = chrono::Utc::now();
+    state
+        .db
+        .execute(
+            "INSERT INTO app.records (id, app_id, owner_id, type_name, created_by, data, created_at, updated_at) \
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+            params![id, app_id, owner, type_name.to_string(), created_by, data, now, now],
+        )
+        .await?;
+    let rec = state
+        .db
+        .fetch_one_as::<Record>("SELECT * FROM app.records WHERE id = $1", params![id])
+        .await?;
     Ok(rec.flatten())
 }
 
 async fn do_update(state: &AppState, app_id: Uuid, owner: Uuid, rid: Uuid, raw: Value) -> Result<Value> {
     let patch = if raw.is_object() { raw } else { json!({}) };
-    let rec = sqlx::query_as::<_, Record>(
-        r#"UPDATE app.records SET data = data || $4
-           WHERE id = $1 AND app_id = $2 AND owner_id = $3 RETURNING *"#,
+    // Read-modify-write inside a transaction: fetch the current JSON, merge in
+    // Rust (identical semantics on every engine), write it back. Replaces the
+    // PostgreSQL-only `data = data || patch`.
+    let mut tx = state.db.begin().await?;
+    let current: Option<Value> = tx
+        .fetch_optional_row(
+            "SELECT data FROM app.records WHERE id = $1 AND app_id = $2 AND owner_id = $3",
+            params![rid, app_id, owner],
+        )
+        .await?
+        .map(|row| row.try_get::<Value>("data"))
+        .transpose()?;
+    let current = match current {
+        Some(v) => v,
+        None => {
+            tx.rollback().await?;
+            return Err(AppError::NotFound("Enregistrement introuvable".into()));
+        }
+    };
+    let merged = merge_shallow(current, patch);
+    let now = chrono::Utc::now();
+    // Placeholders must appear in strictly increasing order in the text (SET
+    // before WHERE), so the merged data / timestamp come first.
+    tx.execute(
+        "UPDATE app.records SET data = $1, updated_at = $2 WHERE id = $3 AND app_id = $4 AND owner_id = $5",
+        params![merged, now, rid, app_id, owner],
     )
-    .bind(rid).bind(app_id).bind(owner).bind(&patch)
-    .fetch_optional(&state.db).await?
-    .ok_or_else(|| AppError::NotFound("Enregistrement introuvable".into()))?;
+    .await?;
+    tx.commit().await?;
+
+    let rec = state
+        .db
+        .fetch_one_as::<Record>("SELECT * FROM app.records WHERE id = $1", params![rid])
+        .await?;
     Ok(rec.flatten())
 }
 
 async fn do_delete(state: &AppState, app_id: Uuid, owner: Uuid, rid: Uuid) -> Result<Value> {
-    let affected = sqlx::query("DELETE FROM app.records WHERE id = $1 AND app_id = $2 AND owner_id = $3")
-        .bind(rid).bind(app_id).bind(owner)
-        .execute(&state.db).await?.rows_affected();
-    if affected == 0 { return Err(AppError::NotFound("Enregistrement introuvable".into())); }
+    let affected = state
+        .db
+        .execute(
+            "DELETE FROM app.records WHERE id = $1 AND app_id = $2 AND owner_id = $3",
+            params![rid, app_id, owner],
+        )
+        .await?;
+    if affected == 0 {
+        return Err(AppError::NotFound("Enregistrement introuvable".into()));
+    }
     Ok(json!({ "deleted": true }))
 }
 
@@ -385,12 +594,14 @@ pub async fn get(
     user: AppUserExt,
     Path((app_id, _type_name, rid)): Path<(Uuid, String, Uuid)>,
 ) -> Result<Json<Value>> {
-    let rec = sqlx::query_as::<_, Record>(
-        "SELECT * FROM app.records WHERE id = $1 AND app_id = $2 AND owner_id = $3",
-    )
-    .bind(rid).bind(app_id).bind(user.id)
-    .fetch_optional(&state.db).await?
-    .ok_or_else(|| AppError::NotFound("Enregistrement introuvable".into()))?;
+    let rec = state
+        .db
+        .fetch_optional_as::<Record>(
+            "SELECT * FROM app.records WHERE id = $1 AND app_id = $2 AND owner_id = $3",
+            params![rid, app_id, user.id],
+        )
+        .await?
+        .ok_or_else(|| AppError::NotFound("Enregistrement introuvable".into()))?;
     Ok(Json(rec.flatten()))
 }
 
@@ -401,16 +612,7 @@ pub async fn update(
     Path((app_id, _type_name, rid)): Path<(Uuid, String, Uuid)>,
     Json(dto): Json<UpdateRecordDto>,
 ) -> Result<Json<Value>> {
-    let patch = if dto.data.is_object() { dto.data } else { json!({}) };
-    // Fusion JSONB côté SQL : data || patch (le patch écrase les clés existantes).
-    let rec = sqlx::query_as::<_, Record>(
-        r#"UPDATE app.records SET data = data || $4
-           WHERE id = $1 AND app_id = $2 AND owner_id = $3 RETURNING *"#,
-    )
-    .bind(rid).bind(app_id).bind(user.id).bind(&patch)
-    .fetch_optional(&state.db).await?
-    .ok_or_else(|| AppError::NotFound("Enregistrement introuvable".into()))?;
-    Ok(Json(rec.flatten()))
+    Ok(Json(do_update(&state, app_id, user.id, rid, dto.data).await?))
 }
 
 /// DELETE /apps/:app_id/data/:type/:rid
@@ -419,14 +621,5 @@ pub async fn delete(
     user: AppUserExt,
     Path((app_id, _type_name, rid)): Path<(Uuid, String, Uuid)>,
 ) -> Result<Json<Value>> {
-    let affected = sqlx::query(
-        "DELETE FROM app.records WHERE id = $1 AND app_id = $2 AND owner_id = $3",
-    )
-    .bind(rid).bind(app_id).bind(user.id)
-    .execute(&state.db).await?
-    .rows_affected();
-    if affected == 0 {
-        return Err(AppError::NotFound("Enregistrement introuvable".into()));
-    }
-    Ok(Json(json!({ "deleted": true })))
+    Ok(Json(do_delete(&state, app_id, user.id, rid).await?))
 }

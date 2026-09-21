@@ -1,0 +1,4 @@
+DROP TABLE IF EXISTS app_collaborators;
+DROP TABLE IF EXISTS page_templates;
+DROP TABLE IF EXISTS records;
+DROP TABLE IF EXISTS apps;

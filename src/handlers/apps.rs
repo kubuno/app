@@ -2,6 +2,7 @@ use axum::{
     extract::{Path, State},
     Json,
 };
+use kubuno_db::params;
 use rand::Rng;
 use serde_json::{json, Value};
 use uuid::Uuid;
@@ -38,6 +39,19 @@ fn extract_shared_types(def: &Value) -> Vec<String> {
         .unwrap_or_default()
 }
 
+/// Reselects a freshly written app row (no RETURNING on MySQL). `definition` is
+/// left at its default and filled by the caller from the `.kbapp` file.
+async fn fetch_owned(state: &AppState, id: Uuid, owner: Uuid) -> Result<Application> {
+    state
+        .db
+        .fetch_optional_as::<Application>(
+            "SELECT * FROM app.apps WHERE id = $1 AND owner_id = $2",
+            params![id, owner],
+        )
+        .await?
+        .ok_or_else(|| AppError::NotFound("Application introuvable".into()))
+}
+
 /// Enforces the instance-wide per-user app ceiling (`max_apps_per_user`) before a
 /// new app is created or duplicated. `0` means unlimited, so the check is skipped.
 /// Counts only live (non-trashed) apps the user owns.
@@ -46,12 +60,14 @@ async fn enforce_app_quota(state: &AppState, owner: Uuid) -> Result<()> {
     if max <= 0 {
         return Ok(());
     }
-    let count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM app.apps WHERE owner_id = $1 AND is_trashed = FALSE",
-    )
-    .bind(owner)
-    .fetch_one(&state.db)
-    .await?;
+    let sql = format!(
+        "SELECT {} FROM app.apps WHERE owner_id = $1 AND is_trashed = $2",
+        state.db.backend().count_bigint("*")
+    );
+    let count = state
+        .db
+        .fetch_scalar::<i64>(&sql, params![owner, false])
+        .await?;
     if count >= max as i64 {
         return Err(AppError::PolicyRefused(format!(
             "Limite de {max} applications par utilisateur atteinte (fixée par l'administrateur)"
@@ -65,14 +81,13 @@ pub async fn list(
     State(state): State<AppState>,
     user: AppUserExt,
 ) -> Result<Json<Vec<Application>>> {
-    let mut apps = sqlx::query_as::<_, Application>(
-        r#"SELECT * FROM app.apps
-           WHERE owner_id = $1 AND is_trashed = FALSE
-           ORDER BY updated_at DESC"#,
-    )
-    .bind(user.id)
-    .fetch_all(&state.db)
-    .await?;
+    let mut apps = state
+        .db
+        .fetch_all_as::<Application>(
+            "SELECT * FROM app.apps WHERE owner_id = $1 AND is_trashed = $2 ORDER BY updated_at DESC",
+            params![user.id, false],
+        )
+        .await?;
     for a in &mut apps {
         a.definition = json!(null);
     }
@@ -95,31 +110,33 @@ pub async fn create(
     let slug = random_slug();
     let shared_types = extract_shared_types(&definition);
 
-    let mut app = sqlx::query_as::<_, Application>(
-        r#"INSERT INTO app.apps (owner_id, name, description, file_id, slug, tags, is_shared, shared_types)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *"#,
-    )
-    .bind(user.id)
-    .bind(&dto.name)
-    .bind(dto.description.as_deref())
-    .bind(file_id)
-    .bind(&slug)
-    .bind(&tags)
-    .bind(!shared_types.is_empty())
-    .bind(&shared_types)
-    .fetch_one(&state.db)
-    .await?;
+    let id = kubuno_db::new_id();
+    let now = chrono::Utc::now();
+    state
+        .db
+        .execute(
+            "INSERT INTO app.apps \
+                 (id, owner_id, name, description, file_id, slug, tags, is_shared, shared_types, created_at, updated_at) \
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
+            params![
+                id,
+                user.id,
+                &dto.name,
+                dto.description.as_deref(),
+                file_id,
+                &slug,
+                &tags,
+                !shared_types.is_empty(),
+                &shared_types,
+                now,
+                now
+            ],
+        )
+        .await?;
+
+    let mut app = fetch_owned(&state, id, user.id).await?;
     app.definition = definition;
     Ok(Json(app))
-}
-
-async fn fetch_owned(state: &AppState, id: Uuid, owner: Uuid) -> Result<Application> {
-    sqlx::query_as::<_, Application>("SELECT * FROM app.apps WHERE id = $1 AND owner_id = $2")
-        .bind(id)
-        .bind(owner)
-        .fetch_optional(&state.db)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Application introuvable".into()))
 }
 
 async fn fetch_owned_full(state: &AppState, id: Uuid, owner: Uuid) -> Result<Application> {
@@ -134,19 +151,22 @@ async fn fetch_owned_full(state: &AppState, id: Uuid, owner: Uuid) -> Result<App
 /// Fetches an app accessible to `user_id` (owner OR shared collaborator). Returns the
 /// row and whether the user is the owner. Collaborators see the app the owner owns.
 async fn fetch_accessible(state: &AppState, id: Uuid, user_id: Uuid) -> Result<(Application, bool)> {
-    let app = sqlx::query_as::<_, Application>("SELECT * FROM app.apps WHERE id = $1")
-        .bind(id)
-        .fetch_optional(&state.db)
+    let app = state
+        .db
+        .fetch_optional_as::<Application>("SELECT * FROM app.apps WHERE id = $1", params![id])
         .await?
         .ok_or_else(|| AppError::NotFound("Application introuvable".into()))?;
     if app.owner_id == user_id {
         return Ok((app, true));
     }
-    let is_collab: bool = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM app.app_collaborators WHERE app_id = $1 AND user_id = $2)",
-    )
-    .bind(id).bind(user_id)
-    .fetch_one(&state.db).await?;
+    let is_collab = state
+        .db
+        .fetch_scalar::<i64>(
+            "SELECT COUNT(*) FROM app.app_collaborators WHERE app_id = $1 AND user_id = $2",
+            params![id, user_id],
+        )
+        .await?
+        > 0;
     if is_collab {
         Ok((app, false))
     } else {
@@ -174,8 +194,13 @@ pub async fn get(
             if let Some(fname) = cf::file_name(&state, user.id, fid).await {
                 let stem = cf::strip_ext(&fname);
                 if !stem.is_empty() && stem != app.name {
-                    sqlx::query("UPDATE app.apps SET name = $2 WHERE id = $1")
-                        .bind(id).bind(&stem).execute(&state.db).await?;
+                    state
+                        .db
+                        .execute(
+                            "UPDATE app.apps SET name = $1, updated_at = $2 WHERE id = $3",
+                            params![&stem, chrono::Utc::now(), id],
+                        )
+                        .await?;
                     app.name = stem;
                 }
             }
@@ -195,12 +220,14 @@ pub async fn open_by_file(
     user: AppUserExt,
     Json(dto): Json<OpenByFileDto>,
 ) -> Result<Json<Application>> {
-    let id = sqlx::query_scalar::<_, Uuid>(
-        "SELECT id FROM app.apps WHERE file_id = $1 AND owner_id = $2",
-    )
-    .bind(dto.file_id).bind(user.id)
-    .fetch_optional(&state.db).await?
-    .ok_or_else(|| AppError::NotFound("Aucune application liée à ce fichier".into()))?;
+    let id = state
+        .db
+        .fetch_optional_scalar::<Uuid>(
+            "SELECT id FROM app.apps WHERE file_id = $1 AND owner_id = $2",
+            params![dto.file_id, user.id],
+        )
+        .await?
+        .ok_or_else(|| AppError::NotFound("Aucune application liée à ce fichier".into()))?;
 
     Ok(Json(fetch_owned_full(&state, id, user.id).await?))
 }
@@ -248,23 +275,28 @@ pub async fn update(
     };
 
     let shared_types = extract_shared_types(&definition);
-    let mut app = sqlx::query_as::<_, Application>(
-        r#"UPDATE app.apps SET
-            name = $2, description = $3, file_id = $4, tags = $5, is_published = $6,
-            is_shared = $7, shared_types = $8, is_starred = $9
-           WHERE id = $1 RETURNING *"#,
-    )
-    .bind(id)
-    .bind(&name)
-    .bind(description.as_deref())
-    .bind(file_id)
-    .bind(&tags)
-    .bind(is_published)
-    .bind(!shared_types.is_empty())
-    .bind(&shared_types)
-    .bind(is_starred)
-    .fetch_one(&state.db)
-    .await?;
+    state
+        .db
+        .execute(
+            "UPDATE app.apps SET \
+                name = $1, description = $2, file_id = $3, tags = $4, is_published = $5, \
+                is_shared = $6, shared_types = $7, is_starred = $8, updated_at = $9 \
+             WHERE id = $10",
+            params![
+                &name,
+                description.as_deref(),
+                file_id,
+                &tags,
+                is_published,
+                !shared_types.is_empty(),
+                &shared_types,
+                is_starred,
+                chrono::Utc::now(),
+                id
+            ],
+        )
+        .await?;
+    let mut app = fetch_owned(&state, id, user.id).await?;
     app.definition = definition;
 
     if name_changed && !name.trim().is_empty() {
@@ -281,9 +313,12 @@ pub async fn delete(
     Path(id): Path<Uuid>,
 ) -> Result<Json<Value>> {
     fetch_owned(&state, id, user.id).await?;
-    sqlx::query("UPDATE app.apps SET is_trashed = TRUE, is_published = FALSE WHERE id = $1")
-        .bind(id)
-        .execute(&state.db)
+    state
+        .db
+        .execute(
+            "UPDATE app.apps SET is_trashed = $1, is_published = $2, updated_at = $3 WHERE id = $4",
+            params![true, false, chrono::Utc::now(), id],
+        )
         .await?;
     Ok(Json(json!({ "deleted": true })))
 }
@@ -301,20 +336,31 @@ pub async fn duplicate(
     let slug = random_slug();
     let shared_types = extract_shared_types(&src.definition);
 
-    let mut app = sqlx::query_as::<_, Application>(
-        r#"INSERT INTO app.apps (owner_id, name, description, file_id, slug, tags, is_shared, shared_types)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *"#,
-    )
-    .bind(user.id)
-    .bind(&new_name)
-    .bind(src.description.as_deref())
-    .bind(new_file_id)
-    .bind(&slug)
-    .bind(&src.tags)
-    .bind(!shared_types.is_empty())
-    .bind(&shared_types)
-    .fetch_one(&state.db)
-    .await?;
+    let new_id = kubuno_db::new_id();
+    let now = chrono::Utc::now();
+    state
+        .db
+        .execute(
+            "INSERT INTO app.apps \
+                 (id, owner_id, name, description, file_id, slug, tags, is_shared, shared_types, created_at, updated_at) \
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
+            params![
+                new_id,
+                user.id,
+                &new_name,
+                src.description.as_deref(),
+                new_file_id,
+                &slug,
+                &src.tags,
+                !shared_types.is_empty(),
+                &shared_types,
+                now,
+                now
+            ],
+        )
+        .await?;
+
+    let mut app = fetch_owned(&state, new_id, user.id).await?;
     app.definition = src.definition;
     Ok(Json(app))
 }
@@ -335,14 +381,14 @@ pub async fn publish(
             "Publication publique désactivée par l'administrateur".into(),
         ));
     }
-    let app = sqlx::query_as::<_, Application>(
-        "UPDATE app.apps SET is_published = $2 WHERE id = $1 RETURNING *",
-    )
-    .bind(id)
-    .bind(publish)
-    .fetch_one(&state.db)
-    .await?;
-    Ok(Json(app))
+    state
+        .db
+        .execute(
+            "UPDATE app.apps SET is_published = $1, updated_at = $2 WHERE id = $3",
+            params![publish, chrono::Utc::now(), id],
+        )
+        .await?;
+    Ok(Json(fetch_owned(&state, id, user.id).await?))
 }
 
 /// GET /public/apps/:slug — vue PUBLIQUE d'une app publiée (sans auth).
@@ -353,12 +399,14 @@ pub async fn get_public(
 ) -> Result<Json<Value>> {
     // Instance policy: an admin may require an account to open a published app.
     crate::handlers::data::assert_anonymous_access_allowed(&state)?;
-    let row = sqlx::query_as::<_, (Uuid, Uuid, Option<Uuid>, String)>(
-        "SELECT id, owner_id, file_id, name FROM app.apps WHERE slug = $1 AND is_published = TRUE AND is_trashed = FALSE",
-    )
-    .bind(&slug)
-    .fetch_optional(&state.db).await?
-    .ok_or_else(|| AppError::NotFound("Application introuvable".into()))?;
+    let row = state
+        .db
+        .fetch_optional_as::<(Uuid, Uuid, Option<Uuid>, String)>(
+            "SELECT id, owner_id, file_id, name FROM app.apps WHERE slug = $1 AND is_published = $2 AND is_trashed = $3",
+            params![&slug, true, false],
+        )
+        .await?
+        .ok_or_else(|| AppError::NotFound("Application introuvable".into()))?;
     let (id, owner, file_id, name) = row;
     let definition = match file_id {
         Some(fid) => cf::read_definition(&state, owner, fid).await.unwrap_or_else(|_| cf::empty_definition()),

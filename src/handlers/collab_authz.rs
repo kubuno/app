@@ -7,6 +7,7 @@
 //! The core only denies access on an explicit 403 (fail-open otherwise).
 
 use axum::{extract::State, http::HeaderMap, Json};
+use kubuno_db::params;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use uuid::Uuid;
@@ -45,17 +46,19 @@ pub async fn authorize(
         .map_err(|_| AppError::Validation(format!("invalid uuid in room: {}", dto.room)))?;
 
     // 3) ACL: the owner OR a shared collaborator may join the room. No is_trashed
-    //    filter — owners can still open/edit a trashed app's builder.
-    let allowed = sqlx::query_scalar::<_, bool>(
-        r#"SELECT EXISTS(
-               SELECT 1 FROM app.apps WHERE id = $1 AND owner_id = $2
-               UNION
-               SELECT 1 FROM app.app_collaborators WHERE app_id = $1 AND user_id = $2
-           )"#,
-    )
-    .bind(app_id).bind(dto.user_id)
-    .fetch_one(&state.db).await
-    .map_err(|e| { tracing::error!(error = %e, "collab authorize: ACL query"); e })?;
+    //    filter — owners can still open/edit a trashed app's builder. Two counts
+    //    (placeholders are strictly increasing and never reused under SqlSafeStr).
+    let allowed = state
+        .db
+        .fetch_scalar::<i64>(
+            "SELECT \
+                 (SELECT COUNT(*) FROM app.apps WHERE id = $1 AND owner_id = $2) \
+               + (SELECT COUNT(*) FROM app.app_collaborators WHERE app_id = $3 AND user_id = $4)",
+            params![app_id, dto.user_id, app_id, dto.user_id],
+        )
+        .await
+        .map_err(|e| { tracing::error!(error = %e, "collab authorize: ACL query"); e })?
+        > 0;
 
     if allowed { Ok(Json(json!({ "ok": true }))) } else { Err(AppError::Forbidden) }
 }

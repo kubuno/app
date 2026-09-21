@@ -19,6 +19,9 @@ pub struct Application {
     /// slug d'URL publique (unique par propriétaire) — runtime publié.
     pub slug:         String,
     pub is_published: bool,
+    // Stored as a JSON array (portable): PostgreSQL alone has a native array
+    // type, so `tags` and `shared_types` are `jsonb`/`JSON`/`TEXT` everywhere.
+    #[sqlx(json)]
     pub tags:         Vec<String>,
     pub is_trashed:   bool,
     /// Whether the app is flagged as a favorite by its owner.

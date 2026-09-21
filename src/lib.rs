@@ -1,3 +1,7 @@
+/// The module's namespace: a PostgreSQL schema, a MySQL database, or the
+/// ATTACHed SQLite file — all named `app`.
+pub const SCHEMA: &str = "app";
+
 pub mod config;
 pub mod errors;
 /// FilesClient + noms centralisés : face CLIENT du module `files`/`drive` (stockage délégué).

@@ -9,6 +9,34 @@ number at release time, and CI publishes that section as the GitHub Release note
 
 ## [Unreleased]
 
+### Changed
+
+- **Runs on PostgreSQL, MySQL/MariaDB or SQLite.** The module moves off a
+  PostgreSQL-only stack onto the runtime-dispatch kubuno-db foundation, so a
+  single binary connects to whichever engine the administrator chooses at run
+  time (`[database] engine`). Existing PostgreSQL instances are unaffected: their
+  migrations are unchanged and re-used as-is.
+
+### Fixed
+
+- **The no-code data engine's filters work identically on every engine.** The
+  dynamic "Things" search (equals / contains / greater-than / in / is-empty …),
+  which addresses arbitrary JSON keys chosen by the app builder, previously used
+  PostgreSQL's `->>` operator, whose path semantics differ on MySQL. Every JSON
+  access now goes through a portable extraction that binds the key as data and
+  emits the right form for the running engine, so the same app behaves the same
+  everywhere. A record update's field merge (formerly PostgreSQL's `data ||
+  patch`) is computed in Rust so a null-valued key is treated identically on all
+  three engines.
+
+### Security
+
+- **Dynamic queries stay parameterised across engines.** The no-code query
+  builder (filters, sort, pagination) is rebuilt on kubuno-db's `DbQueryBuilder`
+  under `SqlSafeStr`: the query structure is fixed text and every value — the
+  JSON key included — is a bound placeholder, never interpolated, closing any
+  path to SQL injection through a builder-supplied field name.
+
 ### Security
 
 - **Database driver updated past an unfixable advisory.** The previous line

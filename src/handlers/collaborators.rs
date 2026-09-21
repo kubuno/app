@@ -3,11 +3,20 @@
 //! An owner can grant access (`view`/`comment`/`edit`) to other Kubuno users, who
 //! can then open and co-edit the app in real time (the collab room ACL admits them).
 //! Here we manage the collaborator list and search recipients (`core.users`).
+//!
+//! Reservation: the recipient search and the collaborator listing read/join
+//! `core.users`, a foreign namespace. That cross-schema access resolves on
+//! PostgreSQL (and MySQL on the same server) but not on an ATTACHed SQLite file;
+//! it is the account-directory boundary, not something the portable recipe
+//! covers, and those queries keep their PostgreSQL spelling (`::text`, `ILIKE`,
+//! `NULLS LAST`). The app's own tables (`app.*`) are fully portable.
 
 use axum::{
     extract::{Path, Query, State},
     Json,
 };
+use kubuno_db::dialect::Assign;
+use kubuno_db::params;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use uuid::Uuid;
@@ -55,16 +64,20 @@ pub struct UpdateCollaboratorDto {
 
 /// True if `user` owns the application.
 async fn is_owner(state: &AppState, app_id: Uuid, user_id: Uuid) -> Result<bool> {
-    let exists: bool = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM app.apps WHERE id = $1 AND owner_id = $2)",
-    )
-    .bind(app_id).bind(user_id)
-    .fetch_one(&state.db).await
-    .map_err(|e| { tracing::error!(error = %e, "collaborators: is_owner"); e })?;
-    Ok(exists)
+    let n = state
+        .db
+        .fetch_scalar::<i64>(
+            "SELECT COUNT(*) FROM app.apps WHERE id = $1 AND owner_id = $2",
+            params![app_id, user_id],
+        )
+        .await
+        .map_err(|e| { tracing::error!(error = %e, "collaborators: is_owner"); e })?;
+    Ok(n > 0)
 }
 
 /// `GET /recipients?q=` — search users to share with.
+///
+/// NOTE: reads `core.users` (PostgreSQL / MySQL only).
 pub async fn search_recipients(
     State(state): State<AppState>,
     user: AppUserExt,
@@ -76,61 +89,71 @@ pub async fn search_recipients(
         return Ok(Json(json!({ "recipients": [] })));
     }
     let pattern = format!("%{query}%");
-    let hits = sqlx::query_as::<_, RecipientHit>(
-        r#"SELECT id, display_name, email::text AS email, avatar_url
-           FROM core.users
-           WHERE is_active = TRUE
-             AND id <> $1
-             AND (email::text ILIKE $2 OR username ILIKE $2 OR display_name ILIKE $2)
-           ORDER BY display_name NULLS LAST, email
-           LIMIT 20"#,
-    )
-    .bind(user.id).bind(&pattern)
-    .fetch_all(&state.db).await
-    .map_err(|e| { tracing::error!(error = %e, "collaborators: search"); e })?;
+    let hits = state
+        .db
+        .fetch_all_as::<RecipientHit>(
+            "SELECT id, display_name, email::text AS email, avatar_url \
+             FROM core.users \
+             WHERE is_active = TRUE \
+               AND id <> $1 \
+               AND (email::text ILIKE $2 OR username ILIKE $3 OR display_name ILIKE $4) \
+             ORDER BY display_name NULLS LAST, email \
+             LIMIT 20",
+            params![user.id, &pattern, &pattern, &pattern],
+        )
+        .await
+        .map_err(|e| { tracing::error!(error = %e, "collaborators: search"); e })?;
     Ok(Json(json!({ "recipients": hits })))
 }
 
 /// `GET /apps/:id/collaborators` — list collaborators (owner or collaborator).
+///
+/// NOTE: joins `core.users` (PostgreSQL / MySQL only).
 pub async fn list(
     State(state): State<AppState>,
     user: AppUserExt,
     Path(app_id): Path<Uuid>,
 ) -> Result<Json<Value>> {
-    let has_access: bool = sqlx::query_scalar(
-        r#"SELECT EXISTS(
-               SELECT 1 FROM app.apps WHERE id = $1 AND owner_id = $2
-               UNION
-               SELECT 1 FROM app.app_collaborators WHERE app_id = $1 AND user_id = $2
-           )"#,
-    )
-    .bind(app_id).bind(user.id)
-    .fetch_one(&state.db).await
-    .map_err(|e| { tracing::error!(error = %e, "collaborators: access"); e })?;
+    // Owner OR collaborator. Two counts (no reused placeholders under SqlSafeStr).
+    let has_access = state
+        .db
+        .fetch_scalar::<i64>(
+            "SELECT \
+                 (SELECT COUNT(*) FROM app.apps WHERE id = $1 AND owner_id = $2) \
+               + (SELECT COUNT(*) FROM app.app_collaborators WHERE app_id = $3 AND user_id = $4)",
+            params![app_id, user.id, app_id, user.id],
+        )
+        .await
+        .map_err(|e| { tracing::error!(error = %e, "collaborators: access"); e })?
+        > 0;
     if !has_access {
         return Err(AppError::NotFound(format!("Application {app_id}")));
     }
 
-    let owner = sqlx::query_as::<_, RecipientHit>(
-        r#"SELECT u.id, u.display_name, u.email::text AS email, u.avatar_url
-           FROM app.apps a JOIN core.users u ON u.id = a.owner_id
-           WHERE a.id = $1"#,
-    )
-    .bind(app_id)
-    .fetch_optional(&state.db).await
-    .map_err(|e| { tracing::error!(error = %e, "collaborators: owner"); e })?;
+    let owner = state
+        .db
+        .fetch_optional_as::<RecipientHit>(
+            "SELECT u.id, u.display_name, u.email::text AS email, u.avatar_url \
+             FROM app.apps a JOIN core.users u ON u.id = a.owner_id \
+             WHERE a.id = $1",
+            params![app_id],
+        )
+        .await
+        .map_err(|e| { tracing::error!(error = %e, "collaborators: owner"); e })?;
 
-    let collaborators = sqlx::query_as::<_, Collaborator>(
-        r#"SELECT c.user_id, c.permission,
-                  u.display_name, u.email::text AS email, u.avatar_url
-           FROM app.app_collaborators c
-           JOIN core.users u ON u.id = c.user_id
-           WHERE c.app_id = $1
-           ORDER BY u.display_name NULLS LAST, u.email"#,
-    )
-    .bind(app_id)
-    .fetch_all(&state.db).await
-    .map_err(|e| { tracing::error!(error = %e, "collaborators: list"); e })?;
+    let collaborators = state
+        .db
+        .fetch_all_as::<Collaborator>(
+            "SELECT c.user_id, c.permission, \
+                    u.display_name, u.email::text AS email, u.avatar_url \
+             FROM app.app_collaborators c \
+             JOIN core.users u ON u.id = c.user_id \
+             WHERE c.app_id = $1 \
+             ORDER BY u.display_name NULLS LAST, u.email",
+            params![app_id],
+        )
+        .await
+        .map_err(|e| { tracing::error!(error = %e, "collaborators: list"); e })?;
 
     Ok(Json(json!({ "owner": owner, "collaborators": collaborators })))
 }
@@ -152,24 +175,35 @@ pub async fn add(
     if dto.user_id == user.id {
         return Err(AppError::Validation("Le propriétaire a déjà accès".into()));
     }
-    let exists: bool = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM core.users WHERE id = $1 AND is_active = TRUE)",
-    )
-    .bind(dto.user_id)
-    .fetch_one(&state.db).await
-    .map_err(|e| { tracing::error!(error = %e, "collaborators: user check"); e })?;
+    // NOTE: reads core.users (PostgreSQL / MySQL only).
+    let exists = state
+        .db
+        .fetch_scalar::<i64>(
+            "SELECT COUNT(*) FROM core.users WHERE id = $1 AND is_active = TRUE",
+            params![dto.user_id],
+        )
+        .await
+        .map_err(|e| { tracing::error!(error = %e, "collaborators: user check"); e })?
+        > 0;
     if !exists {
         return Err(AppError::NotFound("Utilisateur introuvable".into()));
     }
 
-    sqlx::query(
-        r#"INSERT INTO app.app_collaborators (app_id, user_id, permission)
-           VALUES ($1, $2, $3)
-           ON CONFLICT (app_id, user_id) DO UPDATE SET permission = EXCLUDED.permission"#,
-    )
-    .bind(app_id).bind(dto.user_id).bind(&permission)
-    .execute(&state.db).await
-    .map_err(|e| { tracing::error!(error = %e, "collaborators: add"); e })?;
+    let upsert = state.db.backend().upsert(
+        "app.app_collaborators",
+        &["app_id", "user_id"],
+        &[Assign::Incoming("permission")],
+    );
+    state
+        .db
+        .execute(
+            &format!(
+                "INSERT INTO app.app_collaborators (app_id, user_id, permission) VALUES ($1, $2, $3){upsert}"
+            ),
+            params![app_id, dto.user_id, &permission],
+        )
+        .await
+        .map_err(|e| { tracing::error!(error = %e, "collaborators: add"); e })?;
 
     Ok(Json(json!({ "ok": true, "user_id": dto.user_id, "permission": permission })))
 }
@@ -187,13 +221,14 @@ pub async fn update(
     if !PERMISSIONS.contains(&dto.permission.as_str()) {
         return Err(AppError::Validation(format!("Permission invalide : {}", dto.permission)));
     }
-    let rows = sqlx::query(
-        "UPDATE app.app_collaborators SET permission = $3 WHERE app_id = $1 AND user_id = $2",
-    )
-    .bind(app_id).bind(target_id).bind(&dto.permission)
-    .execute(&state.db).await
-    .map_err(|e| { tracing::error!(error = %e, "collaborators: update"); e })?
-    .rows_affected();
+    let rows = state
+        .db
+        .execute(
+            "UPDATE app.app_collaborators SET permission = $1 WHERE app_id = $2 AND user_id = $3",
+            params![&dto.permission, app_id, target_id],
+        )
+        .await
+        .map_err(|e| { tracing::error!(error = %e, "collaborators: update"); e })?;
     if rows == 0 {
         return Err(AppError::NotFound("Collaborateur introuvable".into()));
     }
@@ -210,11 +245,13 @@ pub async fn remove(
     if target_id != user.id && !is_owner(&state, app_id, user.id).await? {
         return Err(AppError::Forbidden);
     }
-    sqlx::query(
-        "DELETE FROM app.app_collaborators WHERE app_id = $1 AND user_id = $2",
-    )
-    .bind(app_id).bind(target_id)
-    .execute(&state.db).await
-    .map_err(|e| { tracing::error!(error = %e, "collaborators: remove"); e })?;
+    state
+        .db
+        .execute(
+            "DELETE FROM app.app_collaborators WHERE app_id = $1 AND user_id = $2",
+            params![app_id, target_id],
+        )
+        .await
+        .map_err(|e| { tracing::error!(error = %e, "collaborators: remove"); e })?;
     Ok(Json(json!({ "ok": true })))
 }
