@@ -31,6 +31,10 @@ number at release time, and CI publishes that section as the GitHub Release note
 
 ### Security
 
+- **Security fixes from the shared database layer (kubuno-db 0.9.0).** The
+  database password can no longer appear in a log through the debug output of
+  the database settings.
+
 - **Dynamic queries stay parameterised across engines.** The no-code query
   builder (filters, sort, pagination) is rebuilt on kubuno-db's `DbQueryBuilder`
   under `SqlSafeStr`: the query structure is fixed text and every value — the
