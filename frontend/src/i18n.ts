@@ -5,7 +5,8 @@ import { registerModuleTranslations } from '@kubuno/sdk'
 // langues retombent sur l'anglais ; ajout ultérieur trivial via le même schéma).
 
 const en = {
-  app: 'App',
+
+  office_bs_file: "File", office_tab_view: "View", office_grp_show: "Show", office_ribbon_fullscreen: "Full screen", office_bs_home: "Home", doc_tab_home: "Home", doc_tab_view: "View", tab_view: "View", math_tab_view: "View",  app: 'App',
   dashboard_subtitle: 'Build full web & mobile apps without code — pages, data and workflows.',
   new_app: 'New app',
   loading: 'Loading…',
