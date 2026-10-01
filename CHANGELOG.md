@@ -19,6 +19,12 @@ number at release time, and CI publishes that section as the GitHub Release note
 
 ### Fixed
 
+- **Database migrations keep the same checksum on every OS.** The repository now
+  pins line endings to LF (`.gitattributes`), so a checkout on Windows no longer
+  turns SQL migrations, scripts, manifests or sources into CRLF. A database
+  migrated by a Linux build is therefore no longer refused by a Windows or macOS
+  build of the same version because its migration checksums differ.
+
 - **The no-code data engine's filters work identically on every engine.** The
   dynamic "Things" search (equals / contains / greater-than / in / is-empty …),
   which addresses arbitrary JSON keys chosen by the app builder, previously used
