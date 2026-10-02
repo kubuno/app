@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { SignedImg, SignedMedia } from './SignedImg'
 import type { Element } from '../types'
 import { asCss } from './style'
 import { resolveIcon } from './icons'
@@ -318,7 +319,7 @@ function CarouselW({ el, interactive }: { el: Element; interactive: boolean }) {
   return (
     <div style={{ position: 'relative', width: '100%', height, borderRadius: 12, overflow: 'hidden', background: '#0f172a', ...css }}>
       {list.map((src, k) => src
-        ? <img key={k} src={src} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: k === i ? 1 : 0, transition: 'opacity .5s' }} />
+        ? <SignedImg key={k} src={src} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: k === i ? 1 : 0, transition: 'opacity .5s' }} />
         : <div key={k} style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: '#64748b', opacity: k === i ? 1 : 0, transition: 'opacity .5s' }}>Image {k + 1}</div>)}
       {el.props.showArrows !== false && list.length > 1 && <>{Arrow('L')}{Arrow('R')}</>}
       {el.props.showDots !== false && list.length > 1 && (
@@ -351,9 +352,9 @@ function BeforeAfterW({ el, interactive }: { el: Element; interactive: boolean }
   return (
     <div ref={ref} style={{ position: 'relative', width: '100%', height, borderRadius: 12, overflow: 'hidden', userSelect: 'none', cursor: interactive ? 'ew-resize' : 'default', ...css }}
       onPointerDown={onDown} onPointerMove={(e) => { if (interactive && e.buttons === 1) drag(e.clientX) }}>
-      {after ? <img src={after} alt="" style={fill(after, 'après')} /> : <div style={{ ...fill('', ''), display: 'grid', placeItems: 'center', color: '#64748b' }}>Après</div>}
+      {after ? <SignedImg src={after} alt="" style={fill(after, 'après')} /> : <div style={{ ...fill('', ''), display: 'grid', placeItems: 'center', color: '#64748b' }}>Après</div>}
       <div style={{ position: 'absolute', inset: 0, width: `${pos}%`, overflow: 'hidden', borderRight: '2px solid #fff' }}>
-        {before ? <img src={before} alt="" style={{ ...fill(before, 'avant'), width: ref.current?.offsetWidth || '100%' } as CSSProperties} /> : <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: '#64748b', background: '#cbd5e1', width: ref.current?.offsetWidth }}>Avant</div>}
+        {before ? <SignedImg src={before} alt="" style={{ ...fill(before, 'avant'), width: ref.current?.offsetWidth || '100%' } as CSSProperties} /> : <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: '#64748b', background: '#cbd5e1', width: ref.current?.offsetWidth }}>Avant</div>}
       </div>
       <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${pos}%`, width: 2, background: '#fff', transform: 'translateX(-1px)' }}>
         <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 34, height: 34, borderRadius: 999, background: '#fff', boxShadow: '0 1px 6px rgba(0,0,0,.3)', display: 'grid', placeItems: 'center', color: '#0f172a', fontSize: 12 }}>⇄</div>
@@ -423,7 +424,7 @@ export function Avatar({ src, name, size, status }: { src?: string; name?: strin
   return (
     <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
       {src
-        ? <img src={src} alt="" style={{ width: size, height: size, borderRadius: 999, objectFit: 'cover' }} />
+        ? <SignedImg src={src} alt="" style={{ width: size, height: size, borderRadius: 999, objectFit: 'cover' }} />
         : <div style={{ width: size, height: size, borderRadius: 999, background: colorFromName(name || '?'), color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: size * 0.4 }}>{initials(name || '?')}</div>}
       {dot && <span style={{ position: 'absolute', right: 0, bottom: 0, width: Math.max(8, size * 0.28), height: Math.max(8, size * 0.28), borderRadius: 999, background: dot, border: '2px solid #fff' }} />}
     </div>
@@ -533,12 +534,12 @@ export function renderWidget(el: Element, interactive: boolean, onNav?: (target:
       const { kind, src } = videoEmbed(s(el.props.url))
       const box: CSSProperties = { width: '100%', aspectRatio: '16 / 9', borderRadius: 8, overflow: 'hidden', background: '#000', ...css }
       if (kind === 'none') return <Placeholder label="Vidéo (URL YouTube/Vimeo/MP4)" style={box} />
-      if (kind === 'video') return <video src={src} controls style={{ ...box, objectFit: 'cover' }} />
+      if (kind === 'video') return <SignedMedia as="video" src={src} controls style={{ ...box, objectFit: 'cover' }} />
       return <div style={box}><iframe src={src} title={el.name} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen style={{ width: '100%', height: '100%', border: 0 }} /></div>
     }
 
     case 'audio':
-      return <audio src={s(el.props.src)} controls style={{ width: '100%', ...css }} />
+      return <SignedMedia as="audio" src={s(el.props.src)} controls style={{ width: '100%', ...css }} />
 
     case 'map': {
       const q = s(el.props.query, 'Paris, France')
@@ -557,7 +558,7 @@ export function renderWidget(el: Element, interactive: boolean, onNav?: (target:
       return (
         <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: s(el.props.gap, '8px'), ...css }}>
           {list.map((src, i) => src
-            ? <img key={i} src={src} alt="" style={{ width: '100%', aspectRatio: '1 / 1', objectFit: 'cover', borderRadius: 6 }} />
+            ? <SignedImg key={i} src={src} alt="" style={{ width: '100%', aspectRatio: '1 / 1', objectFit: 'cover', borderRadius: 6 }} />
             : <Placeholder key={i} label="Image" style={{ width: '100%', aspectRatio: '1 / 1', borderRadius: 6 }} />)}
         </div>
       )
@@ -581,7 +582,7 @@ export function renderWidget(el: Element, interactive: boolean, onNav?: (target:
       const src = s(el.props.src)
       return (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: items, gap: 10, textAlign: align, ...css }}>
-          {src ? <img src={src} alt={s(el.props.title)} style={{ width: '100%', borderRadius: 8, objectFit: 'cover' }} />
+          {src ? <SignedImg src={src} alt={s(el.props.title)} style={{ width: '100%', borderRadius: 8, objectFit: 'cover' }} />
                : <Placeholder label="Image" style={{ width: '100%', height: 140, borderRadius: 8 }} />}
           <div style={{ fontSize: 18, fontWeight: 700, color: '#0f172a' }}>{s(el.props.title, 'Titre')}</div>
           <div style={{ fontSize: 14, color: '#64748b' }}>{s(el.props.text, 'Description.')}</div>
@@ -665,7 +666,7 @@ export function renderWidget(el: Element, interactive: boolean, onNav?: (target:
         <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 20, ...css }}>
           <p style={{ fontSize: 16, color: '#1e293b', fontStyle: 'italic', margin: '0 0 14px' }}>“{s(el.props.quote, 'Un retour client élogieux.')}”</p>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {avatar ? <img src={avatar} alt="" style={{ width: 40, height: 40, borderRadius: 999, objectFit: 'cover' }} />
+            {avatar ? <SignedImg src={avatar} alt="" style={{ width: 40, height: 40, borderRadius: 999, objectFit: 'cover' }} />
                     : <div style={{ width: 40, height: 40, borderRadius: 999, background: '#cbd5e1' }} />}
             <div>
               <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 14 }}>{s(el.props.author, 'Client satisfait')}</div>

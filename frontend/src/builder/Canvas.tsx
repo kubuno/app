@@ -1,6 +1,7 @@
 import { useState, useRef, useLayoutEffect } from 'react'
 import { ChevronUp, ChevronDown, Copy, Trash2, Group, ChevronRight } from 'lucide-react'
 import { resolveIcon } from '../elements/icons'
+import { SignedImg } from '../elements/SignedImg'
 import type { Element, ElementType } from '../types'
 import { useBuilder, currentPage, isContainerType } from '../store'
 import { describeDyn } from '../binding'
@@ -343,7 +344,7 @@ function Leaf({ el }: { el: Element }) {
     case 'image': {
       const src = (el.props.src as { v?: string })?.v || (typeof el.props.src === 'string' ? el.props.src : '')
       return src
-        ? <img src={src} alt={(el.props.alt as string) || ''} style={css} />
+        ? <SignedImg src={src} alt={(el.props.alt as string) || ''} style={css} />
         : <div style={{ ...css, display: 'grid', placeItems: 'center', color: '#94a3b8', fontSize: 12 }}>Image</div>
     }
     case 'divider':

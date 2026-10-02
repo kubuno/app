@@ -7,6 +7,7 @@
 // produit CÔTÉ CLIENT (pdf-lib) puis téléchargé — aucun rendu serveur.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { signedUrl } from '@kubuno/sdk'
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage, type PDFPage } from 'pdf-lib'
 import type { Report, ReportBand, ReportObject } from '../types'
 import { fmtValue as fmt, summarize } from '../reports'
@@ -43,7 +44,10 @@ export async function renderReportPdfBytes(report: Report, rows: Record<string, 
     for (const b of report.bands) for (const o of b.objects) if (o.kind === 'image' && o.src) srcs.add(o.src)
     for (const src of srcs) {
       try {
-        const res = await fetch(src, { credentials: 'include' })
+        // Same-origin API URLs carry a signed ticket (no ambient cookie); other
+        // origins pass through unchanged. Without a session, fall back to the bare URL.
+        const url = await signedUrl(src).catch(() => src)
+        const res = await fetch(url)
         const buf = new Uint8Array(await res.arrayBuffer())
         const isPng = buf[0] === 0x89 && buf[1] === 0x50
         imgCache.set(src, isPng ? await doc.embedPng(buf) : await doc.embedJpg(buf))

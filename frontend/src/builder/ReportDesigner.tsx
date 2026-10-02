@@ -1,4 +1,5 @@
 import { prompt, openImagePicker } from '@kubuno/sdk'
+import { SignedImg } from '../elements/SignedImg'
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import {
   Plus, Trash2, FileText, Type as TypeIcon, Sigma, Hash, Minus, Square, FileDown, Database, Layers,
@@ -1204,7 +1205,7 @@ function DragObject({ o, box, selected, single, editing, live, groupField, onPoi
   if (o.kind === 'image') return (
     <div style={frame} onPointerDown={(e) => onPointerDown(e, 'move')} onContextMenu={onContext} title="Image">
       {o.src
-        ? <img src={o.src} alt="" draggable={false} className="pointer-events-none h-full w-full" style={{ objectFit: o.fit === 'stretch' ? 'fill' : 'contain' }} />
+        ? <SignedImg src={o.src} alt="" draggable={false} className="pointer-events-none h-full w-full" style={{ objectFit: o.fit === 'stretch' ? 'fill' : 'contain' }} />
         : <div className="flex h-full w-full items-center justify-center bg-slate-50 text-slate-300"><ImageIcon size={Math.max(10, Math.min(20, box.height - 4))} /></div>}
       {handles}
     </div>

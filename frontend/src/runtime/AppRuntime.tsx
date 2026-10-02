@@ -1,6 +1,7 @@
 import { useConfirm } from '@kubuno/sdk'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { resolveIcon } from '../elements/icons'
+import { SignedImg } from '../elements/SignedImg'
 import type { AppDefinition, Dyn, Element, Page, RuntimeContext, Workflow } from '../types'
 import { resolveDyn, resolveText, resolveVisible } from '../binding'
 import { appApi, type DataRecord } from '../api'
@@ -327,7 +328,7 @@ function DynImage({ value, alt, style, ctx, version }: { value: unknown; alt: st
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [depKey])
-  return src ? <img src={src} alt={alt} style={style} /> : <div style={{ ...style, display: 'grid', placeItems: 'center', color: '#94a3b8', fontSize: 12 }}>Image</div>
+  return src ? <SignedImg src={src} alt={alt} style={style} /> : <div style={{ ...style, display: 'grid', placeItems: 'center', color: '#94a3b8', fontSize: 12 }}>Image</div>
 }
 
 export type { Page, Workflow }

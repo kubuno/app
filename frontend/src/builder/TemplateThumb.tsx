@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { resolveIcon } from '../elements/icons'
+import { SignedImg } from '../elements/SignedImg'
 import type { Element, Page } from '../types'
 import { asCss, elementCss } from '../elements/style'
 import { renderWidget } from '../elements/widgets'
@@ -34,7 +35,7 @@ function StaticNode({ el }: { el: Element }) {
     case 'checkbox': return <label style={css}><input type="checkbox" disabled /> {describeDyn(el.props.label)}</label>
     case 'image': {
       const src = (el.props.src as { v?: string })?.v || (typeof el.props.src === 'string' ? el.props.src : '')
-      return src ? <img src={src} alt="" style={css} /> : <div style={{ ...css, display: 'grid', placeItems: 'center', color: '#94a3b8', fontSize: 12 }}>Image</div>
+      return src ? <SignedImg src={src} alt="" style={css} /> : <div style={{ ...css, display: 'grid', placeItems: 'center', color: '#94a3b8', fontSize: 12 }}>Image</div>
     }
     case 'divider': return <div style={css} />
     case 'icon': {

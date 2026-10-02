@@ -37,6 +37,10 @@ number at release time, and CI publishes that section as the GitHub Release note
 
 ### Security
 
+- **Images, video and audio in apps and reports, PDF report images and collaborative editing no longer
+  rely on the access-token cookie the web client used to keep readable by page scripts, nor put the access
+  token in a WebSocket URL.** Private addresses are signed when they are displayed and stay plain in the
+  app definition; published apps viewed anonymously behave as before. Requires a Kubuno core that issues signed tickets (`POST /api/v1/auth/tickets`) and `@kubuno/sdk` with the signed-URL helpers.
 - **Security fixes from the shared database layer (kubuno-db 0.9.0).** The
   database password can no longer appear in a log through the debug output of
   the database settings.
