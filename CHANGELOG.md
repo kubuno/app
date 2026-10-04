@@ -37,6 +37,15 @@ number at release time, and CI publishes that section as the GitHub Release note
 
 ### Security
 
+- **Data written by visitors and shared users is checked against the app's data
+  types.** On a published or shared app, a new or changed record must belong to a
+  declared data type and contain only its declared fields, each with a value of
+  the right type (text, number, yes/no, date, or one of an option's choices) and
+  within size limits; anything else is refused. Changing or deleting a record
+  through a published or shared app now only works on a record of the type named
+  in the request, so a visitor can no longer alter or delete records of other
+  (for example private) data types.
+
 - **Images, video and audio in apps and reports, PDF report images and collaborative editing no longer
   rely on the access-token cookie the web client used to keep readable by page scripts, nor put the access
   token in a WebSocket URL.** Private addresses are signed when they are displayed and stay plain in the

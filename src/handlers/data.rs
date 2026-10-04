@@ -311,6 +311,52 @@ pub async fn resolve_shared(state: &AppState, app_id: Uuid, user_id: Uuid, type_
     Ok(owner)
 }
 
+/// The declared data type `type_name` of an app, read from its `.kbapp`
+/// definition. Writes that do not come from the app's owner (an anonymous visitor
+/// of a published app, a user of a shared app) are checked against it: a type the
+/// app does not declare is "not found", and an unreadable definition refuses the
+/// write rather than letting it through unchecked.
+async fn declared_type(
+    state: &AppState,
+    app_id: Uuid,
+    owner: Uuid,
+    type_name: &str,
+) -> Result<crate::services::record_schema::DeclaredType> {
+    let file_id: Option<(Option<Uuid>,)> = state
+        .db
+        .fetch_optional_as("SELECT file_id FROM app.apps WHERE id = $1", params![app_id])
+        .await
+        .map_err(|e| {
+            tracing::error!(error = %e, app = %app_id, "reading the app definition file id");
+            AppError::Database(e)
+        })?;
+    let file_id = file_id
+        .and_then(|(f,)| f)
+        .ok_or_else(|| AppError::NotFound("Type de données inconnu".into()))?;
+    let definition = crate::services::content_files::read_definition(state, owner, file_id)
+        .await
+        .map_err(|e| {
+            tracing::error!(error = %e, app = %app_id, "reading the app definition to validate a write");
+            AppError::Internal(anyhow::anyhow!("définition de l'application illisible"))
+        })?;
+    crate::services::record_schema::declared_type(&definition, type_name)
+        .ok_or_else(|| AppError::NotFound("Type de données inconnu".into()))
+}
+
+/// Checks `data` against the declared type before an anonymous or shared write.
+async fn validate_foreign_write(
+    state: &AppState,
+    app_id: Uuid,
+    owner: Uuid,
+    type_name: &str,
+    data: &Value,
+) -> Result<()> {
+    declared_type(state, app_id, owner, type_name)
+        .await?
+        .validate(data)
+        .map_err(AppError::Validation)
+}
+
 /// Shallow-merges `patch` onto `base` (patch keys overwrite), the portable
 /// equivalent of PostgreSQL's `data || patch`. Done in Rust so the semantics are
 /// identical on all three engines (MySQL's `JSON_MERGE_PATCH` and SQLite's
@@ -398,18 +444,31 @@ async fn do_create(state: &AppState, app_id: Uuid, owner: Uuid, created_by: Opti
     Ok(rec.flatten())
 }
 
-async fn do_update(state: &AppState, app_id: Uuid, owner: Uuid, rid: Uuid, raw: Value) -> Result<Value> {
+/// `type_name`: when set (anonymous and shared writes), only a record of that type
+/// is touched, so a route granted for one type cannot reach a record of another.
+async fn do_update(state: &AppState, app_id: Uuid, owner: Uuid, type_name: Option<&str>, rid: Uuid, raw: Value) -> Result<Value> {
     let patch = if raw.is_object() { raw } else { json!({}) };
     // Read-modify-write inside a transaction: fetch the current JSON, merge in
     // Rust (identical semantics on every engine), write it back. Replaces the
     // PostgreSQL-only `data = data || patch`.
     let mut tx = state.db.begin().await?;
-    let current: Option<Value> = tx
-        .fetch_optional_row(
-            "SELECT data FROM app.records WHERE id = $1 AND app_id = $2 AND owner_id = $3",
-            params![rid, app_id, owner],
-        )
-        .await?
+    let current = match type_name {
+        Some(t) => {
+            tx.fetch_optional_row(
+                "SELECT data FROM app.records WHERE id = $1 AND app_id = $2 AND owner_id = $3 AND type_name = $4",
+                params![rid, app_id, owner, t.to_string()],
+            )
+            .await?
+        }
+        None => {
+            tx.fetch_optional_row(
+                "SELECT data FROM app.records WHERE id = $1 AND app_id = $2 AND owner_id = $3",
+                params![rid, app_id, owner],
+            )
+            .await?
+        }
+    };
+    let current: Option<Value> = current
         .map(|row| row.try_get::<Value>("data"))
         .transpose()?;
     let current = match current {
@@ -437,14 +496,27 @@ async fn do_update(state: &AppState, app_id: Uuid, owner: Uuid, rid: Uuid, raw: 
     Ok(rec.flatten())
 }
 
-async fn do_delete(state: &AppState, app_id: Uuid, owner: Uuid, rid: Uuid) -> Result<Value> {
-    let affected = state
-        .db
-        .execute(
-            "DELETE FROM app.records WHERE id = $1 AND app_id = $2 AND owner_id = $3",
-            params![rid, app_id, owner],
-        )
-        .await?;
+async fn do_delete(state: &AppState, app_id: Uuid, owner: Uuid, type_name: Option<&str>, rid: Uuid) -> Result<Value> {
+    let affected = match type_name {
+        Some(t) => {
+            state
+                .db
+                .execute(
+                    "DELETE FROM app.records WHERE id = $1 AND app_id = $2 AND owner_id = $3 AND type_name = $4",
+                    params![rid, app_id, owner, t.to_string()],
+                )
+                .await?
+        }
+        None => {
+            state
+                .db
+                .execute(
+                    "DELETE FROM app.records WHERE id = $1 AND app_id = $2 AND owner_id = $3",
+                    params![rid, app_id, owner],
+                )
+                .await?
+        }
+    };
     if affected == 0 {
         return Err(AppError::NotFound("Enregistrement introuvable".into()));
     }
@@ -511,26 +583,29 @@ pub async fn public_create(
 ) -> Result<Json<Value>> {
     assert_anonymous_writes_allowed(&state)?;
     let (app_id, owner) = resolve_published(&state, &slug).await?;
+    validate_foreign_write(&state, app_id, owner, &type_name, &dto.data).await?;
     Ok(Json(do_create(&state, app_id, owner, None, &type_name, dto.data).await?))
 }
 
 pub async fn public_update(
     State(state): State<AppState>,
-    Path((slug, _type_name, rid)): Path<(String, String, Uuid)>,
+    Path((slug, type_name, rid)): Path<(String, String, Uuid)>,
     Json(dto): Json<UpdateRecordDto>,
 ) -> Result<Json<Value>> {
     assert_anonymous_writes_allowed(&state)?;
     let (app_id, owner) = resolve_published(&state, &slug).await?;
-    Ok(Json(do_update(&state, app_id, owner, rid, dto.data).await?))
+    validate_foreign_write(&state, app_id, owner, &type_name, &dto.data).await?;
+    Ok(Json(do_update(&state, app_id, owner, Some(&type_name), rid, dto.data).await?))
 }
 
 pub async fn public_delete(
     State(state): State<AppState>,
-    Path((slug, _type_name, rid)): Path<(String, String, Uuid)>,
+    Path((slug, type_name, rid)): Path<(String, String, Uuid)>,
 ) -> Result<Json<Value>> {
     assert_anonymous_writes_allowed(&state)?;
     let (app_id, owner) = resolve_published(&state, &slug).await?;
-    Ok(Json(do_delete(&state, app_id, owner, rid).await?))
+    declared_type(&state, app_id, owner, &type_name).await?;
+    Ok(Json(do_delete(&state, app_id, owner, Some(&type_name), rid).await?))
 }
 
 // ── Handlers PARTAGÉS (multi-utilisateurs, authentifiés) ─────────────────────
@@ -564,6 +639,7 @@ pub async fn shared_create(
     Json(dto): Json<CreateRecordDto>,
 ) -> Result<Json<Value>> {
     let owner = resolve_shared(&state, app_id, user.id, &type_name).await?;
+    validate_foreign_write(&state, app_id, owner, &type_name, &dto.data).await?;
     // created_by = identité réelle de l'auteur, même si l'enregistrement vit dans
     // le pool partagé de l'owner.
     Ok(Json(do_create(&state, app_id, owner, Some(user.id), &type_name, dto.data).await?))
@@ -576,7 +652,8 @@ pub async fn shared_update(
     Json(dto): Json<UpdateRecordDto>,
 ) -> Result<Json<Value>> {
     let owner = resolve_shared(&state, app_id, user.id, &type_name).await?;
-    Ok(Json(do_update(&state, app_id, owner, rid, dto.data).await?))
+    validate_foreign_write(&state, app_id, owner, &type_name, &dto.data).await?;
+    Ok(Json(do_update(&state, app_id, owner, Some(&type_name), rid, dto.data).await?))
 }
 
 pub async fn shared_delete(
@@ -585,7 +662,7 @@ pub async fn shared_delete(
     Path((app_id, type_name, rid)): Path<(Uuid, String, Uuid)>,
 ) -> Result<Json<Value>> {
     let owner = resolve_shared(&state, app_id, user.id, &type_name).await?;
-    Ok(Json(do_delete(&state, app_id, owner, rid).await?))
+    Ok(Json(do_delete(&state, app_id, owner, Some(&type_name), rid).await?))
 }
 
 /// GET /apps/:app_id/data/:type/:rid
@@ -612,7 +689,7 @@ pub async fn update(
     Path((app_id, _type_name, rid)): Path<(Uuid, String, Uuid)>,
     Json(dto): Json<UpdateRecordDto>,
 ) -> Result<Json<Value>> {
-    Ok(Json(do_update(&state, app_id, user.id, rid, dto.data).await?))
+    Ok(Json(do_update(&state, app_id, user.id, None, rid, dto.data).await?))
 }
 
 /// DELETE /apps/:app_id/data/:type/:rid
@@ -621,5 +698,5 @@ pub async fn delete(
     user: AppUserExt,
     Path((app_id, _type_name, rid)): Path<(Uuid, String, Uuid)>,
 ) -> Result<Json<Value>> {
-    Ok(Json(do_delete(&state, app_id, user.id, rid).await?))
+    Ok(Json(do_delete(&state, app_id, user.id, None, rid).await?))
 }
