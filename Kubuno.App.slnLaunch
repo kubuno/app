@@ -1,0 +1,15 @@
+[
+  {
+    "Name": "App (Kubuno Core + browser)",
+    "Projects": [
+      {
+        "Path": "Kubuno.App.Server.rsproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "frontend\\Kubuno.App.Web.esproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

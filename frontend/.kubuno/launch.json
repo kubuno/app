@@ -1,0 +1,21 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "chrome",
+      "request": "launch",
+      "name": "Kubuno app (Chrome)",
+      "url": "http://localhost:8080/app",
+      "webRoot": "${workspaceFolder}",
+      "sourceMapPathOverrides": { "http://localhost:8080/modules/app/*": "${workspaceFolder}/dist/*" }
+    }
+    {
+      "type": "edge",
+      "request": "launch",
+      "name": "Kubuno app (Edge)",
+      "url": "http://localhost:8080/app",
+      "webRoot": "${workspaceFolder}",
+      "sourceMapPathOverrides": { "http://localhost:8080/modules/app/*": "${workspaceFolder}/dist/*" }
+    },
+  ]
+}
