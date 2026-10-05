@@ -163,10 +163,8 @@ async fn main() -> Result<()> {
         .context("Migrations")?;
     }
 
-    let files_client = Arc::new(kubuno_app::files_client::FilesClient::new(
-        settings.core.files_url.clone(),
-        settings.core.internal_secret.clone(),
-    ));
+    // Reaches `drive` through the core's IPC relay, never directly.
+    let files_client = Arc::new(settings.core.files_client());
 
     let http = Client::new();
 

@@ -9,6 +9,13 @@ number at release time, and CI publishes that section as the GitHub Release note
 
 ## [Unreleased]
 
+### Fixed
+
+- **Creating an application works again.** Saving a new application's definition failed with a 404: the module
+  sent its storage requests straight to the Drive module's port, on a route that only the Kubuno server provides.
+  They now go through the server's internal relay, which forwards them to Drive. The `files_url` setting (and
+  `KUBUNO_FILES_URL`) is gone: the module needs only the server's address.
+
 ## [0.1.9] - 2026-10-05
 
 ### Changed

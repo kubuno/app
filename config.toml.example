@@ -12,8 +12,8 @@ port = 3119
 url             = "http://127.0.0.1:8080"
 # Secret partagé — doit correspondre à server.internal_secret dans le core
 internal_secret = "change_me"
-# URL du module files/drive (stockage des définitions .kbapp)
-files_url       = "http://127.0.0.1:3101"
+# The .kbapp files are stored in the drive module, always reached through the
+# core's IPC relay at the URL above: there is no separate drive URL.
 
 # ── Base de données ───────────────────────────────────────────────────────────
 # Les paramètres de connexion sont injectés par le superviseur Kubuno via

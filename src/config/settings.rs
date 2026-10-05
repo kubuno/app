@@ -19,11 +19,22 @@ pub struct ServerSettings {
 pub struct CoreSettings {
     pub url:             String,
     pub internal_secret: String,
-    #[serde(default = "default_files_url")]
-    pub files_url:       String,
 }
 
-fn default_files_url() -> String { "http://127.0.0.1:3101".to_string() }
+impl CoreSettings {
+    /// The client of the `drive` module, which stores the `.kbapp` files.
+    ///
+    /// It is given the **core's** URL: the module never talks to `drive`
+    /// directly. Every call goes to the core's IPC relay
+    /// (`/internal/ipc/drive/...`), which authenticates this module's internal
+    /// secret, swaps in `drive`'s own and forwards the request — so `drive` may
+    /// live on any port, or not be installed at all, without this module
+    /// knowing. Handing it `drive`'s URL sent every call to a route that does
+    /// not exist there (404 on application creation).
+    pub fn files_client(&self) -> crate::files_client::FilesClient {
+        crate::files_client::FilesClient::new(self.url.clone(), self.internal_secret.clone())
+    }
+}
 
 /// The `[database]` section is owned by kubuno-db: which of its fields matter
 /// depends on the engine the administrator chooses at run time, and the pool is
@@ -50,7 +61,6 @@ impl Settings {
             .set_default("server.port", 3119i64)?
             .set_default("core.url", "http://127.0.0.1:8080")?
             .set_default("core.internal_secret", "")?
-            .set_default("core.files_url", "http://127.0.0.1:3101")?
             .set_default("database.max_connections", 20u64)?
             .set_default("database.min_connections", 2u64)?
             .set_default("database.connect_timeout", 10u64)?
@@ -67,7 +77,6 @@ impl Settings {
         builder = builder
             .set_override_option("core.url",             std::env::var("KUBUNO_CORE_URL").ok())?
             .set_override_option("core.internal_secret", std::env::var("KUBUNO_INTERNAL_SECRET").ok())?
-            .set_override_option("core.files_url",       std::env::var("KUBUNO_FILES_URL").ok())?
             .set_override_option("database.host",     std::env::var("KUBUNO_DB_HOST").ok())?
             .set_override_option("database.port",     std::env::var("KUBUNO_DB_PORT").ok()
                                                         .and_then(|v| v.parse::<u64>().ok().map(|n| n.to_string())))?
