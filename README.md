@@ -52,8 +52,9 @@ Kubuno is **modular**: each module is a **separate process** that registers with
 | Sidebar | `App` (protected Drive folder `App`) |
 | Process isolation | `kubuno-seccomp` (no `execve` on the host) |
 
-- **Backend** — `src/`: Axum + SQLx through the shared `kubuno-db` layer (PostgreSQL, MySQL/MariaDB or SQLite, chosen at run time; namespace `app`); app CRUD, the visual definition, the data engine (including the unauthenticated `public_*` handlers for published apps) and published-app resolution. Proxied requests are authenticated from a signed `X-Kubuno-Auth` token minted by the core (via `kubuno-modauth`), never from plain headers.
-- **Frontend** — `frontend/`: a React 19 bundle built to `entry.js` exporting `register()`, consuming `@kubuno/sdk` and `@ui` from npm (provided by the host at runtime via the import map). The builder canvas and the `AppRuntime` share one element tree and one shared renderer, so adding a widget is one model plus one shared renderer.
+- **Server** — `server/`: Axum + SQLx through the shared `kubuno-db` layer (PostgreSQL, MySQL/MariaDB or SQLite, chosen at run time; namespace `app`); app CRUD, the visual definition, the data engine (including the unauthenticated `public_*` handlers for published apps) and published-app resolution. Proxied requests are authenticated from a signed `X-Kubuno-Auth` token minted by the core (via `kubuno-modauth`), never from plain headers.
+- **Web** — `web/`: a React 19 bundle built to `entry.js` exporting `register()`, consuming `@kubuno/sdk` and `@ui` from npm (provided by the host at runtime via the import map). The builder canvas and the `AppRuntime` share one element tree and one shared renderer, so adding a widget is one model plus one shared renderer.
+- **Mobile** — `mobile/`: reserved for the mobile apps (see `mobile/README.md`).
 
 ## Install
 
@@ -71,8 +72,8 @@ sudo systemctl restart kubuno              # the core loads the module on (re)st
 **Requirements:** Rust ≥ 1.82, Node.js ≥ 24, and a database — PostgreSQL 16, MySQL/MariaDB or SQLite.
 
 ```bash
-cargo build --release                      # backend (shared crates from git tags)
-cd frontend && npm ci && npm run build     # frontend bundle → dist/{entry.js, entry.css}
+cd server && cargo build --release         # backend (shared crates from git tags)
+cd web && npm ci && npm run build          # frontend bundle → web/dist/{entry.js, entry.css}
 bash build_kbpkg.sh                        # → dist/app-<version>-<os>-<arch>.kbpkg
 bash build_kbpkg.sh --install              # build + install into the local store + restart
 bash ../_tools/deploy_local.sh app         # fast local rebuild + restart (after first install)
