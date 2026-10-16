@@ -1,4 +1,4 @@
-# Kubuno App — mobile apps
+# Kubuno App - mobile apps
 
 Reserved for the mobile clients of the App module, organised like the other platforms of this repository:
 

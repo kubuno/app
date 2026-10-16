@@ -35,7 +35,7 @@ function CanvasSurface() {
   const select = useBuilder((s) => s.select)
   const { open } = useCanvasMenu()
   const awareness = useCollabAwareness()
-  // Page-content frame (white page) — shared coordinate reference for collab cursors.
+  // Page-content frame (white page) - shared coordinate reference for collab cursors.
   const frameRef = useRef<HTMLDivElement>(null)
   const lastPub = useRef(0)
   // Ctrl/⌘ + molette → zoomer l'espace de travail (listener natif non passif :
@@ -97,7 +97,7 @@ function CanvasSurface() {
 }
 
 /** Fil d'Ariane de l'élément sélectionné (façon Webflow) : chaque ancêtre est
- *  cliquable — le moyen le plus simple d'atteindre un conteneur parent. */
+ *  cliquable - le moyen le plus simple d'atteindre un conteneur parent. */
 function SelectionBreadcrumb() {
   const page = useBuilder(currentPage)
   const selectedId = useBuilder((s) => s.selectedId)
@@ -253,7 +253,7 @@ function EditNode({ el }: { el: Element }) {
       <div style={style} onClick={onClick} onContextMenu={onCtx} {...hoverHandlers} {...dropHandlers} data-el-id={el.id} data-el-type={el.type}>
         {isRG && (
           <div className="pointer-events-none absolute -top-5 left-0 rounded bg-violet-600 px-1.5 py-0.5 text-[10px] font-medium text-white">
-            Liste · {(el.props.source as { dataType?: string })?.dataType || '—'}
+            Liste · {(el.props.source as { dataType?: string })?.dataType || '-'}
           </div>
         )}
         {/* Étiquette de nom + actions rapides du conteneur sélectionné */}
@@ -263,7 +263,7 @@ function EditNode({ el }: { el: Element }) {
         {selected && !isPage && <QuickActions el={el} />}
         {kids.length === 0 ? (
           <div className="pointer-events-none flex min-h-[60px] items-center justify-center rounded border-2 border-dashed border-slate-300 text-xs text-slate-400">
-            {isRG ? 'Cellule (gabarit) — déposez ici' : 'Déposez un élément ici'}
+            {isRG ? 'Cellule (gabarit) - déposez ici' : 'Déposez un élément ici'}
           </div>
         ) : (
           kids.map((k) => <EditNode key={k.id} el={k} />)

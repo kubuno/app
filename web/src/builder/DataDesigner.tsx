@@ -409,7 +409,7 @@ function RecordsTable({ type, appId }: { type: DataType; appId: string | null })
               </tr>
             ))}
             {records.length === 0 && !loading && (
-              <tr><td colSpan={type.fields.length + 2} className="px-3 py-4 text-center text-xs text-slate-400">{q ? 'Aucun résultat pour cette recherche.' : 'Aucune donnée — ajoutez une première ligne ci-dessous.'}</td></tr>
+              <tr><td colSpan={type.fields.length + 2} className="px-3 py-4 text-center text-xs text-slate-400">{q ? 'Aucun résultat pour cette recherche.' : 'Aucune donnée - ajoutez une première ligne ci-dessous.'}</td></tr>
             )}
             <tr className="border-t border-slate-200 bg-slate-50/50">
               <td />
@@ -417,10 +417,10 @@ function RecordsTable({ type, appId }: { type: DataType; appId: string | null })
                 <td key={f.id} className="px-2 py-1">
                   {f.type === 'boolean' ? (
                     <Dropdown value={draft[f.name] ?? ''} width="100%" onChange={(v) => setDraft({ ...draft, [f.name]: v })}
-                      options={[{ value: '', label: '—' }, { value: 'true', label: 'Oui' }, { value: 'false', label: 'Non' }]} />
+                      options={[{ value: '', label: '-' }, { value: 'true', label: 'Oui' }, { value: 'false', label: 'Non' }]} />
                   ) : f.type === 'option' ? (
                     <Dropdown value={draft[f.name] ?? ''} width="100%" onChange={(v) => setDraft({ ...draft, [f.name]: v })}
-                      options={[{ value: '', label: '—' }, ...(f.options ?? []).map((o) => ({ value: o, label: o }))]} />
+                      options={[{ value: '', label: '-' }, ...(f.options ?? []).map((o) => ({ value: o, label: o }))]} />
                   ) : (
                     <Input placeholder={f.name} value={draft[f.name] ?? ''} onChange={(e) => setDraft({ ...draft, [f.name]: e.target.value })} />
                   )}

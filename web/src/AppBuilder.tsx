@@ -66,7 +66,7 @@ export default function AppBuilder() {
   const dirty = useBuilder((s) => s.dirty)
   const preview = useBuilder((s) => s.preview)
   const isMobileView = useIsMobile()
-  // Mobile : l'application s'ouvre sur son APERÇU (le runtime, plein écran) —
+  // Mobile : l'application s'ouvre sur son APERÇU (le runtime, plein écran) -
   // c'est ce qu'on veut voir d'un téléphone ; « Modifier » entre dans le
   // concepteur. Même modèle « lecture d'abord » que les éditeurs Office.
   const mobileFirstRef = useRef(false)
@@ -83,7 +83,7 @@ export default function AppBuilder() {
   const redo = useBuilder((s) => s.redo)
   const addPageDef = useBuilder((s) => s.addPageDef)
 
-  // Collaboration temps réel (présence + synchro de la définition) — activée une
+  // Collaboration temps réel (présence + synchro de la définition) - activée une
   // fois l'app chargée pour que la room s'appuie sur la définition initiale.
   const { presenceUsers, awareness } = useAppCollab(loading ? null : (id ?? null))
 
@@ -116,7 +116,7 @@ export default function AppBuilder() {
   const [saving, setSaving] = useState(false)
   useEffect(() => {
     if (!dirty || !def || !appId) return
-    // Collaborators don't persist to Drive (the .kbapp belongs to the owner) — their
+    // Collaborators don't persist to Drive (the .kbapp belongs to the owner) - their
     // edits live in the shared collab room (core-persisted). Just clear the flag.
     if (!isOwner) { markSaved(); return }
     if (saveTimer.current) clearTimeout(saveTimer.current)
@@ -127,7 +127,7 @@ export default function AppBuilder() {
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current) }
   }, [def, dirty, appId, markSaved, isOwner])
 
-  // Force an immediate save (shared Save button) — cancels the pending autosave
+  // Force an immediate save (shared Save button) - cancels the pending autosave
   // debounce and persists the current definition right away. Keeps `saveStatus`
   // and autosave intact (same path: appApi.update + markSaved + setSaving).
   // Ctrl+S / ⌘S saves immediately.
@@ -198,7 +198,7 @@ export default function AppBuilder() {
   // ré-ouvre le lien de partage.
   const onPublishClick = () => { if (published) setShareOpen(true); else publishApp(true) }
 
-  // ── Onglet « Fichier » (backstage façon Office) — TOUJOURS en 1ʳᵉ position du
+  // ── Onglet « Fichier » (backstage façon Office) - TOUJOURS en 1ʳᵉ position du
   //    ruban. Doit être appelé AVANT tout return anticipé (règles des hooks).
   //    Le contenu « Accueil » réutilise le MÊME AppStartContent que le dashboard. ──
   const { fileTab, activeTabId, onTabChange } = useFileTab({
@@ -244,7 +244,7 @@ export default function AppBuilder() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobileView, def, preview])
 
-  // Mobile : basculer en APERÇU dès que la définition est chargée (une seule fois —
+  // Mobile : basculer en APERÇU dès que la définition est chargée (une seule fois -
   // ensuite l'utilisateur est maître de l'aller-retour aperçu ↔ concepteur).
   useEffect(() => {
     if (!isMobileView || mobileFirstRef.current || !def) return
@@ -258,7 +258,7 @@ export default function AppBuilder() {
   }
 
   if (preview) {
-    // MOBILE : pas de cadre d'appareil ni de marges — l'application occupe tout
+    // MOBILE : pas de cadre d'appareil ni de marges - l'application occupe tout
     // l'écran, avec une barre minimale (retour · titre · « Modifier »).
     if (isMobileView) {
       // Immersion : on réutilise la coquille (topbar unique, ruban VIDE → plein
@@ -304,7 +304,7 @@ export default function AppBuilder() {
     )
   }
 
-  // Panneaux ancrables (DockArea) : Éléments / Arborescence / Inspecteur — pertinents
+  // Panneaux ancrables (DockArea) : Éléments / Arborescence / Inspecteur - pertinents
   // en mode Design ; masqués (`hidden`) dans les autres modes (centre pleine largeur).
   const dockPanels: Record<string, DockPanel> = {
     elements:  { label: 'Éléments',      render: () => <div className="h-full overflow-y-auto bg-white"><Palette /></div> },
@@ -366,7 +366,7 @@ export default function AppBuilder() {
       notify({ title: 'Échec', body: 'Impossible d’enregistrer le modèle de page.', moduleId: 'app', icon: 'AlertTriangle' })
     }
   }
-  // ── Ruban (façon MS Office) — reprend l'INTÉGRALITÉ des anciennes barres de menus
+  // ── Ruban (façon MS Office) - reprend l'INTÉGRALITÉ des anciennes barres de menus
   //    (Fichier/Édition/Insertion/Page/Affichage/Aide) + l'options bar contextuelle
   //    (BuilderToolbar → onglet contextuel « Format »). Aucune action perdue. Le
   //    groupe « Fichier » lui-même vit dans le backstage (onglet Fichier, ci-dessus) ;
@@ -457,7 +457,7 @@ export default function AppBuilder() {
         { id: 'about', kind: 'button', size: 'large', icon: <AppWindow size={18} />, label: t('help_about', { defaultValue: 'À propos de l’éditeur App' }), onClick: () => {} },
       ] },
     ] },
-    // ── Format (CONTEXTUEL) — n'apparaît qu'avec un objet sélectionné, liseré violet.
+    // ── Format (CONTEXTUEL) - n'apparaît qu'avec un objet sélectionné, liseré violet.
     //    Réutilise l'ancienne options bar (BuilderToolbar) telle quelle via un item
     //    `custom`, donc TOUTES ses actions (align/taille/couleur/disposition/dupliquer/
     //    monter/descendre/supprimer) restent disponibles. ──────────────────────────

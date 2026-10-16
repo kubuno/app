@@ -7,7 +7,7 @@ import { resolveIcon } from './icons'
 // ─────────────────────────────────────────────────────────────────────────────
 // Catalogue de widgets « riches » (façon Elementor), partagé par le builder
 // (aperçu statique) et le runtime (interactif). Contrairement aux éléments de
-// base, leurs propriétés sont des valeurs simples (pas d'expressions Dyn) — ce
+// base, leurs propriétés sont des valeurs simples (pas d'expressions Dyn) - ce
 // sont des composants de présentation. `renderWidget` renvoie `undefined` pour
 // un type non géré ici (le switch appelant prend alors le relais).
 // ─────────────────────────────────────────────────────────────────────────────
@@ -33,7 +33,7 @@ function Placeholder({ label, style }: { label: string; style: CSSProperties }) 
   return <div style={{ ...style, display: 'grid', placeItems: 'center', color: '#94a3b8', fontSize: 12, background: '#f1f5f9' }}>{label}</div>
 }
 
-// ── Helpers d'arrays encodés en texte (« a | b » par ligne) — éditeur compact ─
+// ── Helpers d'arrays encodés en texte (« a | b » par ligne) - éditeur compact ─
 
 export function parsePairs(text: string): { a: string; b: string }[] {
   return text.split('\n').map((l) => l.trim()).filter(Boolean).map((l) => {
@@ -627,7 +627,7 @@ export function renderWidget(el: Element, interactive: boolean, onNav?: (target:
       return (
         <blockquote style={{ background: '#eff6ff', margin: 0, padding: '12px 16px', borderRadius: 8, ...css }}>
           <p style={{ fontSize: 19, fontStyle: 'italic', color: '#1e293b', margin: 0 }}>“{s(el.props.text, 'Une citation inspirante.')}”</p>
-          {s(el.props.author) && <footer style={{ marginTop: 6, color: '#64748b', fontSize: 13 }}>— {s(el.props.author)}</footer>}
+          {s(el.props.author) && <footer style={{ marginTop: 6, color: '#64748b', fontSize: 13 }}>- {s(el.props.author)}</footer>}
         </blockquote>
       )
 

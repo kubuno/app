@@ -1,4 +1,4 @@
-// Templates d'APPLICATIONS de démarrage — définitions complètes prêtes à l'emploi.
+// Templates d'APPLICATIONS de démarrage - définitions complètes prêtes à l'emploi.
 // Chaque modèle bâtit un AppDefinition (pages + données + workflows + thème).
 // Les modèles « mobile » s'appuient sur les widgets mobiles du module (avatar,
 // appBar, bottomNav, tileList, chatThread, messageInput) et leur navigation
@@ -56,7 +56,7 @@ export function todoTemplate(kind: AppKind = 'web'): AppDefinition {
   }
 }
 
-// ── Messagerie (façon WhatsApp) — RÉELLE, multi-comptes, temps réel ──────────
+// ── Messagerie (façon WhatsApp) - RÉELLE, multi-comptes, temps réel ──────────
 // Données PARTAGÉES (Conversation/Message) → tout compte connecté ayant le lien
 // publié participe, avec identité réelle (created_by) et polling (quasi temps réel).
 export function chatTemplate(): AppDefinition {

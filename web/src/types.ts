@@ -38,7 +38,7 @@ export type AppKind = 'web' | 'mobile'
 export interface AppSettings {
   startPage: string
   title:     string
-  /** Type d'application — pilote l'adaptation de l'éditeur (canvas, appareils). */
+  /** Type d'application - pilote l'adaptation de l'éditeur (canvas, appareils). */
   kind:      AppKind
 }
 
@@ -145,7 +145,7 @@ export interface Element {
   type:      ElementType
   name:      string
   children?: Element[]
-  /** Propriétés métier — certaines valeurs peuvent être des expressions dynamiques. */
+  /** Propriétés métier - certaines valeurs peuvent être des expressions dynamiques. */
   props:     Record<string, unknown>
   style:     ElementStyle
   layout?:   ElementLayout
@@ -207,7 +207,7 @@ export interface DataType {
   name:   string
   fields: Field[]
   /** Données PARTAGÉES entre tous les utilisateurs de l'app (pool commun avec
-   *  identité réelle du créateur) — requis pour le collaboratif/temps réel. */
+   *  identité réelle du créateur) - requis pour le collaboratif/temps réel. */
   shared?: boolean
 }
 

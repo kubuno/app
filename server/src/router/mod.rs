@@ -31,7 +31,7 @@ pub fn build(state: AppState) -> Router {
         .route("/apps/:app_id/data/:type/search", post(data::search))
         .route("/apps/:app_id/data/:type/:rid",
             get(data::get).put(data::update).delete(data::delete))
-        // Données PARTAGÉES (multi-utilisateurs, identité réelle) — collaboratif
+        // Données PARTAGÉES (multi-utilisateurs, identité réelle) - collaboratif
         .route("/apps/:app_id/shared/:type", get(data::shared_list).post(data::shared_create))
         .route("/apps/:app_id/shared/:type/search", post(data::shared_search))
         .route("/apps/:app_id/shared/:type/:rid",
@@ -39,7 +39,7 @@ pub fn build(state: AppState) -> Router {
         .layer(middleware::from_fn_with_state(state.clone(), require_auth))
         .with_state(state.clone());
 
-    // Accès PUBLIC (apps publiées) — sans authentification, garde `is_published`.
+    // Accès PUBLIC (apps publiées) - sans authentification, garde `is_published`.
     let public = Router::new()
         .route("/health", get(health::health))
         // Internal: collab room ACL (called by the core; guarded by X-Internal-Secret).

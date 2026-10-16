@@ -64,7 +64,7 @@ export default function PageDialog({ onClose, onPick }: { onClose: () => void; o
 
           {/* Grille */}
           <div className="min-w-0 flex-1 overflow-auto p-4">
-            {/* Page vierge — toujours en tête */}
+            {/* Page vierge - toujours en tête */}
             {(theme === 'Tous' || theme === USER_THEME) && (
               <button type="button" onClick={pickBlank}
                 className="mb-5 flex w-full items-center gap-3 rounded-xl border-2 border-dashed border-slate-300 px-4 py-3 text-left hover:border-blue-400 hover:bg-blue-50/50">

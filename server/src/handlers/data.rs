@@ -1,4 +1,4 @@
-//! Moteur de données dynamique — les « Things » de Bubble.
+//! Moteur de données dynamique - les « Things » de Bubble.
 //!
 //! Les types de données définis par l'utilisateur (dans la définition `.kbapp`)
 //! n'ont PAS de table physique : leurs enregistrements vivent génériquement dans
@@ -12,7 +12,7 @@
 //! `JSON_UNQUOTE(JSON_EXTRACT(...))` and SQLite's `json_extract(...)` differ in
 //! both spelling AND path syntax, so every access goes through [`push_json_text`]
 //! / [`push_json_number`], which emit the right form for the running engine and
-//! **bind the key as data** — never interpolate it. Dynamic filters are built
+//! **bind the key as data** - never interpolate it. Dynamic filters are built
 //! with [`DbQueryBuilder`] under `SqlSafeStr`: structure is `&'static` text,
 //! every value (including the JSON key/path) is a placeholder.
 
@@ -124,7 +124,7 @@ fn apply_constraint(qb: &mut DbQueryBuilder, c: &Constraint) {
             qb.push(" = ").push_bind(value_to_text(&c.value));
         }
         "not_equals" => {
-            // Null-safe "distinct from" — spelled three ways.
+            // Null-safe "distinct from" - spelled three ways.
             qb.push(" AND ");
             match qb.backend() {
                 Backend::Postgres => {
@@ -197,7 +197,7 @@ fn apply_constraint(qb: &mut DbQueryBuilder, c: &Constraint) {
 }
 
 /// Emits `app_id = ? AND owner_id = ? AND type_name = ?` plus every constraint
-/// and the free-text filter — the WHERE body shared by the search and its count.
+/// and the free-text filter - the WHERE body shared by the search and its count.
 fn push_scope_and_filters(
     qb: &mut DbQueryBuilder,
     app_id: Uuid,
@@ -422,7 +422,7 @@ async fn do_list(state: &AppState, app_id: Uuid, owner: Uuid, type_name: &str) -
 }
 
 async fn do_create(state: &AppState, app_id: Uuid, owner: Uuid, created_by: Option<Uuid>, type_name: &str, raw: Value) -> Result<Value> {
-    // Single choke point for every creation path — owner, anonymous visitor and
+    // Single choke point for every creation path - owner, anonymous visitor and
     // shared pool all land here, so the ceiling cannot be walked around.
     enforce_record_quota(state, app_id).await?;
     let data = if raw.is_object() { raw } else { json!({}) };
@@ -525,7 +525,7 @@ async fn do_delete(state: &AppState, app_id: Uuid, owner: Uuid, type_name: Optio
 
 // ── Handlers authentifiés (propriétaire) ─────────────────────────────────────
 
-/// POST /apps/:app_id/data/:type/search — recherche par contraintes.
+/// POST /apps/:app_id/data/:type/search - recherche par contraintes.
 pub async fn search(
     State(state): State<AppState>,
     user: AppUserExt,
@@ -536,7 +536,7 @@ pub async fn search(
     Ok(Json(do_search(&state, app_id, user.id, &type_name, &q).await?))
 }
 
-/// GET /apps/:app_id/data/:type — liste simple (tous les enregistrements du type).
+/// GET /apps/:app_id/data/:type - liste simple (tous les enregistrements du type).
 pub async fn list(
     State(state): State<AppState>,
     user: AppUserExt,
@@ -546,7 +546,7 @@ pub async fn list(
     Ok(Json(do_list(&state, app_id, user.id, &type_name).await?))
 }
 
-/// POST /apps/:app_id/data/:type — création d'un enregistrement.
+/// POST /apps/:app_id/data/:type - création d'un enregistrement.
 pub async fn create(
     State(state): State<AppState>,
     user: AppUserExt,
@@ -682,7 +682,7 @@ pub async fn get(
     Ok(Json(rec.flatten()))
 }
 
-/// PUT /apps/:app_id/data/:type/:rid — mise à jour partielle (fusion des champs).
+/// PUT /apps/:app_id/data/:type/:rid - mise à jour partielle (fusion des champs).
 pub async fn update(
     State(state): State<AppState>,
     user: AppUserExt,

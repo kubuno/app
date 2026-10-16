@@ -5,7 +5,7 @@ import { useEffect, useRef } from 'react'
  *
  * Attached as a NATIVE non-passive listener: React registers `onWheel` as
  * passive at the root, so `preventDefault()` there cannot suppress the
- * browser's own page zoom — this hook can. Returns the ref to put on the
+ * browser's own page zoom - this hook can. Returns the ref to put on the
  * scroll container.
  */
 export function useCtrlWheelZoom<T extends HTMLElement>(

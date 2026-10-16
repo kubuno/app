@@ -7,7 +7,7 @@ import { paletteItem } from '../elements/palette'
 import type { Element, ElementType } from '../types'
 
 // Toolbar contextuelle (options bar du WorkspaceShell) : varie selon l'objet
-// sélectionné — alignement/taille/graisse/couleur du texte, sens de disposition
+// sélectionné - alignement/taille/graisse/couleur du texte, sens de disposition
 // des conteneurs, et actions rapides (dupliquer/monter/descendre/supprimer).
 // Sans sélection : insertion rapide des éléments courants dans la page.
 

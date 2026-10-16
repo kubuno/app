@@ -2,7 +2,7 @@
 id           = "app"
 display_name = "App"
 version      = "0.1.9"
-description  = "Plateforme no-code visuelle — construisez des applications web complètes (pages, données, workflows) sans code"
+description  = "Plateforme no-code visuelle - construisez des applications web complètes (pages, données, workflows) sans code"
 author       = "Kubuno Contributors"
 license      = "AGPL-3.0"
 runtime      = "rust"

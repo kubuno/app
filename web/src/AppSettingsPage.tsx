@@ -11,8 +11,8 @@ import { useModulePrefs } from './userPrefs'
 // that `useModulePrefs<T extends Record<string, unknown>>` requires.
 type AppPrefs = {
   [key: string]: unknown // satisfies useModulePrefs<T extends Record<string, unknown>>
-  defaultDevice:  string   // 'desktop' | 'tablet' | 'mobile' — editor canvas frame
-  defaultZoom:    string   // '0.75' | '1' | '1.25' — default canvas zoom
+  defaultDevice:  string   // 'desktop' | 'tablet' | 'mobile' - editor canvas frame
+  defaultZoom:    string   // '0.75' | '1' | '1.25' - default canvas zoom
   showGrid:       boolean  // alignment grid background on the canvas
   outlineElems:   boolean  // highlight element outlines on hover/selection
   editorTheme:    string   // 'light' | 'dark' | 'system'

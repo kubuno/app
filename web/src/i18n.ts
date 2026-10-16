@@ -7,7 +7,7 @@ import { registerModuleTranslations } from '@kubuno/sdk'
 const en = {
 
   office_bs_file: "File", office_tab_view: "View", office_grp_show: "Show", office_ribbon_fullscreen: "Full screen", office_bs_home: "Home", doc_tab_home: "Home", doc_tab_view: "View", tab_view: "View", math_tab_view: "View",  app: 'App',
-  dashboard_subtitle: 'Build full web & mobile apps without code — pages, data and workflows.',
+  dashboard_subtitle: 'Build full web & mobile apps without code - pages, data and workflows.',
   new_app: 'New app',
   loading: 'Loading…',
   no_apps: 'No apps yet.',
@@ -34,14 +34,14 @@ const en = {
   doc_grp_clipboard: 'Clipboard',
   office_open_error_title: 'Unable to open the file',
   office_open_error_body: 'The file could not be opened.',
-  files_hint: '.kbapp files in the App/ folder — one file per application',
-  settings: 'App — settings',
+  files_hint: '.kbapp files in the App/ folder - one file per application',
+  settings: 'App - settings',
   settings_desc: 'The no-code builder runs entirely in the browser; data lives in the app module.',
 }
 
 const fr = {
   app: 'App',
-  dashboard_subtitle: 'Créez des apps web et mobiles complètes sans code — pages, données et workflows.',
+  dashboard_subtitle: 'Créez des apps web et mobiles complètes sans code - pages, données et workflows.',
   new_app: 'Nouvelle application',
   loading: 'Chargement…',
   no_apps: 'Aucune application pour le moment.',
@@ -68,8 +68,8 @@ const fr = {
   doc_grp_clipboard: 'Presse-papiers',
   office_open_error_title: "Impossible d'ouvrir le fichier",
   office_open_error_body: "Le fichier n'a pas pu être ouvert.",
-  files_hint: 'Fichiers .kbapp du dossier App/ — un fichier par application',
-  settings: 'App — réglages',
+  files_hint: 'Fichiers .kbapp du dossier App/ - un fichier par application',
+  settings: 'App - réglages',
   settings_desc: 'Le builder no-code s’exécute entièrement dans le navigateur ; les données vivent dans le module app.',
 }
 

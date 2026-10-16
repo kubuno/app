@@ -4,7 +4,7 @@
 // Déroule les bandes du rapport (report/page header, en-têtes & pieds de groupe,
 // détail, footers) enregistrement par enregistrement, gère les sauts de page, les
 // regroupements et les champs de synthèse (sum/count/avg/min/max). Tout est
-// produit CÔTÉ CLIENT (pdf-lib) puis téléchargé — aucun rendu serveur.
+// produit CÔTÉ CLIENT (pdf-lib) puis téléchargé - aucun rendu serveur.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { signedUrl } from '@kubuno/sdk'
@@ -170,7 +170,7 @@ export async function renderReportPdfBytes(report: Report, rows: Record<string, 
     page.drawText(text, { x: tx, y: baselineY, size, font, color: hex(o.color), maxWidth: o.width, lineHeight: size + 2 })
   }
 
-  // True once real content (not page header/footer) was drawn on the current page —
+  // True once real content (not page header/footer) was drawn on the current page -
   // used by `breakBefore` to avoid emitting blank pages.
   let contentDrawn = false
 

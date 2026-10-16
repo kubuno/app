@@ -6,7 +6,7 @@ import { THEME_APP } from './ribbon/officeThemes'
 import AppStartContent from './AppStartContent'
 
 // App dashboard: the start content (recents + browse + create modal) wrapped in the
-// editor chrome via `ModuleHome` — a ribbon with only the locked "File" tab, whose
+// editor chrome via `ModuleHome` - a ribbon with only the locked "File" tab, whose
 // backstage shows the start content. The exact same `AppStartContent` is reused in
 // the open editor's "File" backstage ("Home" section).
 export default function AppDashboard() {

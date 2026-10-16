@@ -53,7 +53,7 @@ export function RunTileList({ el, ctx, setState, navigate, version }: {
     <div style={{ background: sp(el, 'bg', '#fff'), ...css }}>
       {rows.length === 0 && <div style={{ padding: 24, textAlign: 'center', color: '#94a3b8', fontSize: 14 }}>Aucune conversation pour l’instant.</div>}
       {rows.map((r) => {
-        const title = String(r[titleField] ?? '—')
+        const title = String(r[titleField] ?? '-')
         return (
           <div key={r._id} onClick={() => { setState(setKey, r._id); if (target) navigate(target) }}
             style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}>
@@ -90,7 +90,7 @@ export function RunChatThread({ el, ctx, version }: { el: Element; ctx: RuntimeC
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 14, background: sp(el, 'bg', '#e5ddd5'), overflowY: 'auto', ...css }}>
       {!convId && <div style={{ margin: 'auto', color: '#64748b', fontSize: 14 }}>Choisissez une conversation.</div>}
-      {convId && rows.length === 0 && <div style={{ margin: 'auto', color: '#64748b', fontSize: 13 }}>Aucun message — écrivez le premier !</div>}
+      {convId && rows.length === 0 && <div style={{ margin: 'auto', color: '#64748b', fontSize: 13 }}>Aucun message - écrivez le premier !</div>}
       {rows.map((m) => {
         const out = me != null && String(m._created_by ?? '') === me
         const bubble: CSSProperties = { alignSelf: out ? 'flex-end' : 'flex-start', maxWidth: '78%', background: out ? '#dcf8c6' : '#fff', borderRadius: 10, padding: '7px 10px', boxShadow: '0 1px 1px rgba(0,0,0,.08)' }

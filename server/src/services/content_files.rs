@@ -1,6 +1,6 @@
 //! Stockage du CONTENU des applications no-code dans le module `files`/`drive`.
 //!
-//! Format Kubuno propre au module App — MIME `application/vnd.kubuno.app+json`,
+//! Format Kubuno propre au module App - MIME `application/vnd.kubuno.app+json`,
 //! extension `.kbapp`, JSON gzippé. La base ne garde que la référence `file_id`
 //! + la métadonnée (nom, statut de publication, compteurs…).
 //!

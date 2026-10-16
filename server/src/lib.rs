@@ -1,5 +1,5 @@
 /// The module's namespace: a PostgreSQL schema, a MySQL database, or the
-/// ATTACHed SQLite file — all named `app`.
+/// ATTACHed SQLite file - all named `app`.
 pub const SCHEMA: &str = "app";
 
 pub mod config;

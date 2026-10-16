@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Moteur de liaison de données dynamique — évalue les expressions `Dyn`.
+// Moteur de liaison de données dynamique - évalue les expressions `Dyn`.
 //
 // Une expression résout vers une valeur concrète à partir d'un `RuntimeContext`
 // (valeurs des inputs, état de page, cellule courante, utilisateur). Les

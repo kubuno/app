@@ -1,4 +1,4 @@
-//! Modèles de pages réutilisables — une page conçue dans un projet peut être
+//! Modèles de pages réutilisables - une page conçue dans un projet peut être
 //! enregistrée comme modèle (par utilisateur) puis réinsérée dans d'autres
 //! projets. La définition stocke l'arbre `Page` complet (JSON).
 
@@ -35,7 +35,7 @@ pub struct CreatePageTemplateDto {
     pub definition: Value,
 }
 
-/// GET /page-templates — modèles de l'utilisateur (les plus récents d'abord).
+/// GET /page-templates - modèles de l'utilisateur (les plus récents d'abord).
 pub async fn list(State(state): State<AppState>, user: AppUserExt) -> Result<Json<Vec<PageTemplate>>> {
     let rows = state
         .db
@@ -48,7 +48,7 @@ pub async fn list(State(state): State<AppState>, user: AppUserExt) -> Result<Jso
     Ok(Json(rows))
 }
 
-/// POST /page-templates — enregistre la page courante comme modèle réutilisable.
+/// POST /page-templates - enregistre la page courante comme modèle réutilisable.
 pub async fn create(
     State(state): State<AppState>,
     user: AppUserExt,

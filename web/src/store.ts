@@ -3,7 +3,7 @@
 // sélection, l'historique undo/redo, l'appareil cible et le mode aperçu.
 //
 // Stratégie de mutation : chaque modification clone la définition entière
-// (structuredClone), mute le clone, puis commit() — ce qui empile l'ancien état
+// (structuredClone), mute le clone, puis commit() - ce qui empile l'ancien état
 // pour l'undo. Simple et robuste pour un arbre imbriqué de taille modérée.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -478,7 +478,7 @@ export const useBuilder = create<BuilderState>((set, get) => ({
     Object.assign(found.el, patch)
     // Coalescing de l'historique : des modifs RAPIDES du même élément sur les mêmes
     // propriétés (glissé d'un sélecteur de couleur, frappe au clavier, slider…)
-    // forment UNE SEULE entrée d'undo — sinon un drag de couleur génère des dizaines
+    // forment UNE SEULE entrée d'undo - sinon un drag de couleur génère des dizaines
     // de micro-pas et « annuler » paraît ne rien faire.
     const now = Date.now()
     const key = id + '|' + Object.keys(patch).sort().join(',')

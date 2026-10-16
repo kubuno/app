@@ -1,5 +1,5 @@
 //! Runs the app module's own migrations and the no-code data engine's portable
-//! SQL against a real server of **each** engine, from a single compiled binary —
+//! SQL against a real server of **each** engine, from a single compiled binary -
 //! the proof that the engine is a run-time choice, not a build-time one.
 //!
 //! The app/record CRUD proper is partly drive-backed (the `.kbapp` files live in
@@ -137,7 +137,7 @@ async fn insert_record(pool: &DbPool, app_id: Uuid, owner: Uuid, type_name: &str
 }
 
 /// Runs a filtered/sorted search (a single equality-or-comparison constraint),
-/// returning the matched records in order plus the total count — the two queries
+/// returning the matched records in order plus the total count - the two queries
 /// `do_search` issues, built the same way.
 async fn search(
     pool: &DbPool,

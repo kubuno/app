@@ -46,7 +46,7 @@ pub async fn authorize(
         .map_err(|_| AppError::Validation(format!("invalid uuid in room: {}", dto.room)))?;
 
     // 3) ACL: the owner OR a shared collaborator may join the room. No is_trashed
-    //    filter — owners can still open/edit a trashed app's builder. Two counts
+    //    filter - owners can still open/edit a trashed app's builder. Two counts
     //    (placeholders are strictly increasing and never reused under SqlSafeStr).
     let allowed = state
         .db

@@ -52,15 +52,15 @@ const ACT_DRAG_MIME = 'application/x-app-action'
 /** Résumé « humain » d'une action (carte repliée + infobulles). */
 function summarizeAction(a: Action, lk: { pages: { id: string; name: string }[]; reports: Report[] }): string {
   switch (a.type) {
-    case 'createRecord': return a.dataType || '—'
-    case 'updateRecord': return `${a.dataType || '—'} ← ${describeDyn(a.recordRef)}`
-    case 'deleteRecord': return `${a.dataType || '—'} ← ${describeDyn(a.recordRef)}`
-    case 'navigate':     return lk.pages.find((p) => p.id === a.pageId)?.name ?? '—'
+    case 'createRecord': return a.dataType || '-'
+    case 'updateRecord': return `${a.dataType || '-'} ← ${describeDyn(a.recordRef)}`
+    case 'deleteRecord': return `${a.dataType || '-'} ← ${describeDyn(a.recordRef)}`
+    case 'navigate':     return lk.pages.find((p) => p.id === a.pageId)?.name ?? '-'
     case 'openUrl':      return describeDyn(a.url)
-    case 'setState':     return `${a.key || '—'} = ${describeDyn(a.value)}`
+    case 'setState':     return `${a.key || '-'} = ${describeDyn(a.value)}`
     case 'showAlert':    return describeDyn(a.message)
     case 'copyToClipboard': return describeDyn(a.text)
-    case 'generatePdf':  return lk.reports.find((r) => r.id === a.reportId)?.name ?? '—'
+    case 'generatePdf':  return lk.reports.find((r) => r.id === a.reportId)?.name ?? '-'
     case 'wait':         return `${a.ms ?? 0} ms`
     case 'confirm':      return describeDyn(a.message)
     default:             return ''
@@ -250,7 +250,7 @@ function WorkflowDetail({ wf, els, inputs, dataTypes, reports, pages, onChange, 
     <div className="mx-auto max-w-2xl space-y-4">
       <div className="flex items-center gap-2">
         <div className="flex-1"><Input value={wf.name} onChange={(e) => onChange({ name: e.target.value })} className="text-lg font-semibold" /></div>
-        <Switch on={!wf.disabled} onChange={(v) => onChange({ disabled: !v })} title={wf.disabled ? 'Workflow désactivé — cliquer pour activer' : 'Workflow actif — cliquer pour désactiver'} />
+        <Switch on={!wf.disabled} onChange={(v) => onChange({ disabled: !v })} title={wf.disabled ? 'Workflow désactivé - cliquer pour activer' : 'Workflow actif - cliquer pour désactiver'} />
         <button type="button" title="Dupliquer le workflow" onClick={onDuplicate} className="rounded-md p-2 text-slate-400 hover:bg-slate-100"><Copy size={15} /></button>
         <button type="button" title="Supprimer le workflow" onClick={onRemove} className="rounded-md p-2 text-red-500 hover:bg-red-50"><Trash2 size={16} /></button>
       </div>
@@ -332,7 +332,7 @@ function WorkflowDetail({ wf, els, inputs, dataTypes, reports, pages, onChange, 
         })}
         {wf.actions.length === 0 && (
           <div className="rounded-lg border border-dashed border-slate-300 px-3 py-6 text-center text-xs text-slate-400">
-            Aucune action pour l’instant — ajoutez-en une ci-dessous.
+            Aucune action pour l’instant - ajoutez-en une ci-dessous.
           </div>
         )}
       </div>

@@ -27,7 +27,7 @@ impl CoreSettings {
     /// It is given the **core's** URL: the module never talks to `drive`
     /// directly. Every call goes to the core's IPC relay
     /// (`/internal/ipc/drive/...`), which authenticates this module's internal
-    /// secret, swaps in `drive`'s own and forwards the request — so `drive` may
+    /// secret, swaps in `drive`'s own and forwards the request - so `drive` may
     /// live on any port, or not be installed at all, without this module
     /// knowing. Handing it `drive`'s URL sent every call to a route that does
     /// not exist there (404 on application creation).
@@ -73,7 +73,7 @@ impl Settings {
             .add_source(File::with_name("config").required(false))
             .add_source(File::with_name("/etc/kubuno/modules/app/config").required(false));
 
-        // Variables injectées par le superviseur core — priorité maximale.
+        // Variables injectées par le superviseur core - priorité maximale.
         builder = builder
             .set_override_option("core.url",             std::env::var("KUBUNO_CORE_URL").ok())?
             .set_override_option("core.internal_secret", std::env::var("KUBUNO_INTERNAL_SECRET").ok())?

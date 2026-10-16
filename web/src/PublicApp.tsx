@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { appApi } from './api'
 import AppRuntime from './runtime/AppRuntime'
 
-// Vue PUBLIQUE d'une application publiée — route hors-shell (visiteur anonyme).
+// Vue PUBLIQUE d'une application publiée - route hors-shell (visiteur anonyme).
 // Charge la définition par slug et exécute le runtime ; les données passent par
 // les routes publiques du backend (cf. publicSlug → dataScope).
 export default function PublicApp() {

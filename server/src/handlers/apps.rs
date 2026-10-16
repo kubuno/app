@@ -76,7 +76,7 @@ async fn enforce_app_quota(state: &AppState, owner: Uuid) -> Result<()> {
     Ok(())
 }
 
-/// GET /apps — liste des applications (métadonnée seule, sans la définition).
+/// GET /apps - liste des applications (métadonnée seule, sans la définition).
 pub async fn list(
     State(state): State<AppState>,
     user: AppUserExt,
@@ -94,7 +94,7 @@ pub async fn list(
     Ok(Json(apps))
 }
 
-/// POST /apps — création d'une application.
+/// POST /apps - création d'une application.
 pub async fn create(
     State(state): State<AppState>,
     user: AppUserExt,
@@ -174,7 +174,7 @@ async fn fetch_accessible(state: &AppState, id: Uuid, user_id: Uuid) -> Result<(
     }
 }
 
-/// GET /apps/:id — application complète (avec sa définition).
+/// GET /apps/:id - application complète (avec sa définition).
 pub async fn get(
     State(state): State<AppState>,
     user: AppUserExt,
@@ -214,7 +214,7 @@ pub struct OpenByFileDto {
     pub file_id: Uuid,
 }
 
-/// POST /apps/open-by-file — résout une application depuis l'id de fichier .kbapp.
+/// POST /apps/open-by-file - résout une application depuis l'id de fichier .kbapp.
 pub async fn open_by_file(
     State(state): State<AppState>,
     user: AppUserExt,
@@ -232,7 +232,7 @@ pub async fn open_by_file(
     Ok(Json(fetch_owned_full(&state, id, user.id).await?))
 }
 
-/// PUT /apps/:id — sauvegarde (nom/description/définition/tags/publication).
+/// PUT /apps/:id - sauvegarde (nom/description/définition/tags/publication).
 pub async fn update(
     State(state): State<AppState>,
     user: AppUserExt,
@@ -306,7 +306,7 @@ pub async fn update(
     Ok(Json(app))
 }
 
-/// DELETE /apps/:id — corbeille.
+/// DELETE /apps/:id - corbeille.
 pub async fn delete(
     State(state): State<AppState>,
     user: AppUserExt,
@@ -365,7 +365,7 @@ pub async fn duplicate(
     Ok(Json(app))
 }
 
-/// POST /apps/:id/publish — bascule l'état de publication.
+/// POST /apps/:id/publish - bascule l'état de publication.
 pub async fn publish(
     State(state): State<AppState>,
     user: AppUserExt,
@@ -391,7 +391,7 @@ pub async fn publish(
     Ok(Json(fetch_owned(&state, id, user.id).await?))
 }
 
-/// GET /public/apps/:slug — vue PUBLIQUE d'une app publiée (sans auth).
+/// GET /public/apps/:slug - vue PUBLIQUE d'une app publiée (sans auth).
 /// Renvoie nom + définition (lue depuis le fichier .kbapp du propriétaire).
 pub async fn get_public(
     State(state): State<AppState>,

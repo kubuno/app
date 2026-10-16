@@ -721,16 +721,16 @@ function ReportEditor({ report, onChange, onRemove }: { report: Report; onChange
                     <div className="pointer-events-none absolute z-0 border border-dashed border-slate-300"
                       style={{ left: mg.left, top: mg.top, width: uw, height: uh }} />
                     {/* Poignées de marges : glisser les bords de la zone imprimable */}
-                    <div className="absolute z-10 hover:bg-blue-400/20" title={`${MARGIN_LABELS.left} : ${Math.round(mg.left)} pt — glisser pour redimensionner`}
+                    <div className="absolute z-10 hover:bg-blue-400/20" title={`${MARGIN_LABELS.left} : ${Math.round(mg.left)} pt - glisser pour redimensionner`}
                       style={{ left: mg.left - 4, top: mg.top, width: 6, height: uh, cursor: 'ew-resize' }}
                       onPointerDown={(e) => beginMarginDrag(e, 'left')} />
-                    <div className="absolute z-10 hover:bg-blue-400/20" title={`${MARGIN_LABELS.right} : ${Math.round(mg.right)} pt — glisser pour redimensionner`}
+                    <div className="absolute z-10 hover:bg-blue-400/20" title={`${MARGIN_LABELS.right} : ${Math.round(mg.right)} pt - glisser pour redimensionner`}
                       style={{ left: mg.left + uw - 2, top: mg.top, width: 6, height: uh, cursor: 'ew-resize' }}
                       onPointerDown={(e) => beginMarginDrag(e, 'right')} />
-                    <div className="absolute z-10 hover:bg-blue-400/20" title={`${MARGIN_LABELS.top} : ${Math.round(mg.top)} pt — glisser pour redimensionner`}
+                    <div className="absolute z-10 hover:bg-blue-400/20" title={`${MARGIN_LABELS.top} : ${Math.round(mg.top)} pt - glisser pour redimensionner`}
                       style={{ left: mg.left, top: mg.top - 8, width: uw, height: 12, cursor: 'ns-resize' }}
                       onPointerDown={(e) => beginMarginDrag(e, 'top')} />
-                    <div className="absolute z-10 hover:bg-blue-400/20" title={`${MARGIN_LABELS.bottom} : ${Math.round(mg.bottom)} pt — glisser pour redimensionner`}
+                    <div className="absolute z-10 hover:bg-blue-400/20" title={`${MARGIN_LABELS.bottom} : ${Math.round(mg.bottom)} pt - glisser pour redimensionner`}
                       style={{ left: mg.left, top: mg.top + uh - 4, width: uw, height: 12, cursor: 'ns-resize' }}
                       onPointerDown={(e) => beginMarginDrag(e, 'bottom')} />
                     {/* Valeur en direct pendant le glissement (marge ou hauteur de bande) */}
@@ -923,9 +923,9 @@ function Ruler({ pw, mLeft, mRight, zoom, onMarginDown }: {
           <div className="absolute inset-y-0 left-0 bg-slate-300/50" style={{ width: mLeft * zoom }} />
           <div className="absolute inset-y-0 right-0 bg-slate-300/50" style={{ width: mRight * zoom }} />
           {/* Frontières de marges glissables (façon Word) */}
-          <div className="absolute inset-y-0 z-10 hover:bg-blue-400/40" title={`Marge gauche : ${Math.round(mLeft)} pt — glisser pour redimensionner`}
+          <div className="absolute inset-y-0 z-10 hover:bg-blue-400/40" title={`Marge gauche : ${Math.round(mLeft)} pt - glisser pour redimensionner`}
             style={{ left: mLeft * zoom - 3, width: 6, cursor: 'ew-resize' }} onPointerDown={(e) => onMarginDown(e, 'left')} />
-          <div className="absolute inset-y-0 z-10 hover:bg-blue-400/40" title={`Marge droite : ${Math.round(mRight)} pt — glisser pour redimensionner`}
+          <div className="absolute inset-y-0 z-10 hover:bg-blue-400/40" title={`Marge droite : ${Math.round(mRight)} pt - glisser pour redimensionner`}
             style={{ left: (pw - mRight) * zoom - 3, width: 6, cursor: 'ew-resize' }} onPointerDown={(e) => onMarginDown(e, 'right')} />
           <div className="absolute inset-y-0" style={{ left: mLeft * zoom, width: uw * zoom }}>
             {marks.map((p) => (
@@ -966,9 +966,9 @@ function VRuler({ ph, mTop, mBottom, zoom, onMarginDown }: {
           ))}
         </div>
         {/* Frontières de marges glissables */}
-        <div className="absolute inset-x-0 z-10 hover:bg-blue-400/40" title={`Marge haute : ${Math.round(mTop)} pt — glisser pour redimensionner`}
+        <div className="absolute inset-x-0 z-10 hover:bg-blue-400/40" title={`Marge haute : ${Math.round(mTop)} pt - glisser pour redimensionner`}
           style={{ top: mTop * zoom - 4, height: 8, cursor: 'ns-resize' }} onPointerDown={(e) => onMarginDown(e, 'top')} />
-        <div className="absolute inset-x-0 z-10 hover:bg-blue-400/40" title={`Marge basse : ${Math.round(mBottom)} pt — glisser pour redimensionner`}
+        <div className="absolute inset-x-0 z-10 hover:bg-blue-400/40" title={`Marge basse : ${Math.round(mBottom)} pt - glisser pour redimensionner`}
           style={{ top: (ph - mBottom) * zoom - 4, height: 8, cursor: 'ns-resize' }} onPointerDown={(e) => onMarginDown(e, 'bottom')} />
       </div>
     </div>
@@ -1039,7 +1039,7 @@ function BandRail({ sections, zoom, groups, hoverBand, selectedBand, onSelect, o
           <div key={s.key}
             className={`relative flex cursor-pointer items-center justify-center overflow-visible border-y border-slate-200/70 ${selected ? 'ring-2 ring-inset ring-blue-500' : hovered ? 'ring-1 ring-inset ring-blue-400' : ''} ${b.hidden ? 'opacity-50' : ''}`}
             style={{ height: cellH, background: BAND_TINT[b.type] ?? '#fff' }}
-            title={`${label} · ${Math.round(b.height)} pt — glisser pour déplacer`}
+            title={`${label} · ${Math.round(b.height)} pt - glisser pour déplacer`}
             draggable={!isGroup}
             onDragStart={(e) => { e.dataTransfer.setData(BAND_DRAG_MIME, b.id); e.dataTransfer.effectAllowed = 'move' }}
             onDragOver={(e) => {
@@ -1070,7 +1070,7 @@ function BandRail({ sections, zoom, groups, hoverBand, selectedBand, onSelect, o
             ) : null}
             {/* Poignée de hauteur de bande (comme les lignes d'un tableur) */}
             <div className="absolute inset-x-0 bottom-0 h-[5px] cursor-ns-resize hover:bg-blue-500/60"
-              title={`${label} — glisser pour changer la hauteur (${Math.round(b.height)} pt)`}
+              title={`${label} - glisser pour changer la hauteur (${Math.round(b.height)} pt)`}
               onPointerDown={(e) => onResize(e, b.id)} />
           </div>
         )
@@ -1174,7 +1174,7 @@ function DragObject({ o, box, selected, single, editing, live, groupField, onPoi
       case 'totalPages':   return '1'
       case 'printDate':    return new Date().toLocaleDateString('fr-FR')
       case 'recordNumber': return '1'
-      case 'groupName':    return String((groupField && live?.row?.[groupField]) ?? '—')
+      case 'groupName':    return String((groupField && live?.row?.[groupField]) ?? '-')
       default:             return ''
     }
   }
@@ -1214,7 +1214,7 @@ function DragObject({ o, box, selected, single, editing, live, groupField, onPoi
     const v = live?.row?.[o.field ?? '']
     const checked = v === true || v === 1 || /^(true|1|oui|yes)$/i.test(String(v ?? ''))
     return (
-      <div style={frame} onPointerDown={(e) => onPointerDown(e, 'move')} onContextMenu={onContext} title={`Case à cocher — {${o.field || '?'}}`}>
+      <div style={frame} onPointerDown={(e) => onPointerDown(e, 'move')} onContextMenu={onContext} title={`Case à cocher - {${o.field || '?'}}`}>
         <div className="flex h-full w-full items-center justify-center border" style={{ borderColor: o.color || '#334155', color: o.color || '#334155', fontSize: Math.max(7, box.height - 3), lineHeight: 1 }}>
           {(live ? checked : true) ? '✓' : ''}
         </div>
@@ -1270,7 +1270,7 @@ function BandInspector({ band, canRemove, canBreak, typeLocked, onChange, onChan
       {!isGroup && (
         <InspRow label="Type">
           {typeLocked
-            ? <div className="rounded border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm text-slate-400">{BAND_LABELS.detail} — dernière section Détail (type verrouillé)</div>
+            ? <div className="rounded border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm text-slate-400">{BAND_LABELS.detail} - dernière section Détail (type verrouillé)</div>
             : <Dropdown value={band.type} width="100%" onChange={(v) => onChangeType(v as ReportBand['type'])} options={FREE_TYPES} />}
         </InspRow>
       )}

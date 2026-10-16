@@ -4,7 +4,7 @@ use serde_json::Value;
 use sqlx::FromRow;
 use uuid::Uuid;
 
-/// Ligne de la table `app.apps` — métadonnée d'une application no-code.
+/// Ligne de la table `app.apps` - métadonnée d'une application no-code.
 /// La définition complète (pages/données/workflows) vit dans un fichier `.kbapp`.
 #[derive(Debug, Clone, Serialize, FromRow)]
 pub struct Application {
@@ -16,7 +16,7 @@ pub struct Application {
     #[sqlx(default)]
     pub definition:   Value,
     pub file_id:      Option<Uuid>,
-    /// slug d'URL publique (unique par propriétaire) — runtime publié.
+    /// slug d'URL publique (unique par propriétaire) - runtime publié.
     pub slug:         String,
     pub is_published: bool,
     // Stored as a JSON array (portable): PostgreSQL alone has a native array
@@ -40,7 +40,7 @@ pub struct CreateAppDto {
     pub definition: Option<Value>,
     #[serde(default)]
     pub tags: Option<Vec<String>>,
-    /// Modèle de départ optionnel (ex: "crm", "todo") — préchargé côté frontend.
+    /// Modèle de départ optionnel (ex: "crm", "todo") - préchargé côté frontend.
     #[serde(default)]
     pub template: Option<String>,
 }

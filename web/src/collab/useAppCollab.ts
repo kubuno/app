@@ -1,6 +1,6 @@
 import { useAuthStore } from '@kubuno/sdk'
 // Real-time collaboration for the app builder, on top of the core's generic Yjs
-// relay (`/collab/:room/sync`) — same mechanism the office sub-modules use.
+// relay (`/collab/:room/sync`) - same mechanism the office sub-modules use.
 //
 // The whole AppDefinition is stored as a single value in a Y.Map ('app' → 'def').
 // Sync is therefore whole-document "last writer wins" (no per-element CRDT merge):

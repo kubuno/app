@@ -208,7 +208,7 @@ function RunNode(props: NodeProps) {
       return (
         <select style={css} value={String(ctxBase.inputs[el.id] ?? '')}
           onChange={(e) => { setInput(el.id, e.target.value); workflowsFor('inputChange').forEach((w) => runActions(w.actions, makeEnv(cell))) }}>
-          <option value="">—</option>
+          <option value="">-</option>
           {((el.props.options as string[]) || []).map((o, i) => <option key={i} value={o}>{o}</option>)}
         </select>
       )

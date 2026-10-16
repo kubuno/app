@@ -75,7 +75,7 @@ async fn is_owner(state: &AppState, app_id: Uuid, user_id: Uuid) -> Result<bool>
     Ok(n > 0)
 }
 
-/// `GET /recipients?q=` — search users to share with.
+/// `GET /recipients?q=` - search users to share with.
 ///
 /// NOTE: reads `core.users` (PostgreSQL / MySQL only).
 pub async fn search_recipients(
@@ -106,7 +106,7 @@ pub async fn search_recipients(
     Ok(Json(json!({ "recipients": hits })))
 }
 
-/// `GET /apps/:id/collaborators` — list collaborators (owner or collaborator).
+/// `GET /apps/:id/collaborators` - list collaborators (owner or collaborator).
 ///
 /// NOTE: joins `core.users` (PostgreSQL / MySQL only).
 pub async fn list(
@@ -158,7 +158,7 @@ pub async fn list(
     Ok(Json(json!({ "owner": owner, "collaborators": collaborators })))
 }
 
-/// `POST /apps/:id/collaborators` — add/update a collaborator (owner only).
+/// `POST /apps/:id/collaborators` - add/update a collaborator (owner only).
 pub async fn add(
     State(state): State<AppState>,
     user: AppUserExt,
@@ -208,7 +208,7 @@ pub async fn add(
     Ok(Json(json!({ "ok": true, "user_id": dto.user_id, "permission": permission })))
 }
 
-/// `PATCH /apps/:id/collaborators/:user_id` — change permission (owner only).
+/// `PATCH /apps/:id/collaborators/:user_id` - change permission (owner only).
 pub async fn update(
     State(state): State<AppState>,
     user: AppUserExt,
@@ -235,7 +235,7 @@ pub async fn update(
     Ok(Json(json!({ "ok": true })))
 }
 
-/// `DELETE /apps/:id/collaborators/:user_id` — remove a collaborator.
+/// `DELETE /apps/:id/collaborators/:user_id` - remove a collaborator.
 /// Allowed to the owner, or to the collaborator themselves (leave the share).
 pub async fn remove(
     State(state): State<AppState>,
